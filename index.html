@@ -2,7 +2,6 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <!-- 允许手机缩放，保留原生手势 -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
   <title>作品集</title>
   <style>
@@ -13,16 +12,16 @@
     }
     html, body {
       background: #000;
-      /* 保留浏览器基础滚动能力，不彻底锁死 */
       height: 100%;
+      overflow: hidden;
     }
     .slider {
       width: 100vw;
       height: 100vh;
-      overflow: hidden;
       position: fixed;
       top: 0;
       left: 0;
+      overflow: hidden;
     }
     .slider-track {
       display: flex;
@@ -104,50 +103,57 @@
 
   <script>
     const track = document.querySelector('.slider-track');
-    const itemList = document.querySelectorAll('.item');
+    const items = document.querySelectorAll('.item');
     let position = 0;
+    let startX = 0;
+    let startY = 0;
 
-    // 获取单页宽度
-    const getPageWidth = () => window.innerWidth;
-    // 最大滑动距离（49张图，最大偏移 48倍单页宽度）
-    const getMaxPos = () => getPageWidth() * (itemList.length - 1);
+    const getWidth = () => window.innerWidth;
+    const getMaxPos = () => getWidth() * (items.length - 1);
 
-    // 鼠标滚轮上下滑动 → 横向翻图，可停在两图之间
-    window.addEventListener('wheel', (e) => {
-      // 用滚轮纵向位移控制横向滑动
+    // 鼠标滚轮：上下滚动控制横向滑动，可停在两图中间
+    window.addEventListener('wheel', e => {
+      e.preventDefault();
       position += e.deltaY * 1.2;
-      // 边界限制
-      if (position < 0) position = 0;
-      if (position > getMaxPos()) position = getMaxPos();
-      // 应用位移
+      position = Math.max(0, Math.min(position, getMaxPos()));
       track.style.transform = `translateX(${-position}px)`;
-    });
+    }, { passive: false });
 
-    // 手机单指左右滑动 / 双指缩放
-    let touchStartX = 0;
-    document.addEventListener('touchstart', (e) => {
-      touchStartX = e.touches[0].clientX;
-    });
-
-    document.addEventListener('touchmove', (e) => {
-      // 单指滑动：切换图片；双指缩放交给浏览器原生处理
+    // 触摸起始坐标
+    document.addEventListener('touchstart', e => {
       if (e.touches.length === 1) {
-        e.preventDefault();
-        const moveX = e.touches[0].clientX;
-        position += (touchStartX - moveX) * 1;
-        touchStartX = moveX;
-
-        if (position < 0) position = 0;
-        if (position > getMaxPos()) position = getMaxPos();
-        track.style.transform = `translateX(${-position}px)`;
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
       }
     });
 
-    // 窗口大小变化，重新对齐当前图片
+    // 触摸移动：只响应左右方向，屏蔽上下偏移
+    document.addEventListener('touchmove', e => {
+      // 双指：交给浏览器原生缩放，不干预
+      if (e.touches.length >= 2) return;
+
+      const currX = e.touches[0].clientX;
+      const currY = e.touches[0].clientY;
+      const diffX = startX - currX;
+      const diffY = startY - currY;
+
+      // 判定为主横向滑动，才执行切图
+      if (Math.abs(diffX) > Math.abs(diffY)) {
+        e.preventDefault();
+        position += diffX;
+        startX = currX;
+        startY = currY;
+
+        position = Math.max(0, Math.min(position, getMaxPos()));
+        track.style.transform = `translateX(${-position}px)`;
+      }
+    }, { passive: false });
+
+    // 窗口缩放自动对齐当前图片
     window.addEventListener('resize', () => {
-      const pageW = getPageWidth();
-      const curIndex = Math.round(position / pageW);
-      position = pageW * curIndex;
+      const w = getWidth();
+      const index = Math.round(position / w);
+      position = w * index;
       track.style.transform = `translateX(${-position}px)`;
     });
   </script>
