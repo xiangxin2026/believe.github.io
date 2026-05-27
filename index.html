@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-  <title>郑相鑫2026</title>
+  <title>作品集</title>
   <style>
     * {
       margin: 0;
@@ -62,6 +62,105 @@
       <div class="item"><img src="images/12.jpg"></div>
       <div class="item"><img src="images/13.jpg"></div>
       <div class="item"><img src="images/14.jpg"></div>
+      <div class="item"><img src="images/15.jpg"></div>
+      <div class="item"><img src="images/16.jpg"></div>
+      <div class="item"><img src="images/17.jpg"></div>
+      <div class="item"><img src="images/18.jpg"></div>
+      <div class="item"><img src="images/19.jpg"></div>
+      <div class="item"><img src="images/20.jpg"></div>
+      <div class="item"><img src="images/21.jpg"></div>
+      <div class="item"><img src="images/22.jpg"></div>
+      <div class="item"><img src="images/23.jpg"></div>
+      <div class="item"><img src="images/24.jpg"></div>
+      <div class="item"><img src="images/25.jpg"></div>
+      <div class="item"><img src="images/26.jpg"></div>
+      <div class="item"><img src="images/27.jpg"></div>
+      <div class="item"><img src="images/28.jpg"></div>
+      <div class="item"><img src="images/29.jpg"></div>
+      <div class="item"><img src="images/30.jpg"></div>
+      <div class="item"><img src="images/31.jpg"></div>
+      <div class="item"><img src="images/32.jpg"></div>
+      <div class="item"><img src="images/33.jpg"></div>
+      <div class="item"><img src="images/34.jpg"></div>
+      <div class="item"><img src="images/35.jpg"></div>
+      <div class="item"><img src="images/36.jpg"></div>
+      <div class="item"><img src="images/37.jpg"></div>
+      <div class="item"><img src="images/38.jpg"></div>
+      <div class="item"><img src="images/39.jpg"></div>
+      <div class="item"><img src="images/40.jpg"></div>
+      <div class="item"><img src="images/41.jpg"></div>
+      <div class="item"><img src="images/42.jpg"></div>
+      <div class="item"><img src="images/43.jpg"></div>
+      <div class="item"><img src="images/44.jpg"></div>
+      <div class="item"><img src="images/45.jpg"></div>
+      <div class="item"><img src="images/46.jpg"></div>
+      <div class="item"><img src="images/47.jpg"></div>
+      <div class="item"><img src="images/48.jpg"></div>
+      <div class="item"><img src="images/49.jpg"></div>
+    </div>
+  </div>
+
+  <script>
+    const track = document.querySelector('.slider-track');
+    const items = document.querySelectorAll('.item');
+    let position = 0;
+    let startX = 0;
+    let currentIndex = 0;
+
+    const getWidth = () => window.innerWidth;
+    const getMaxPos = () => getWidth() * (items.length - 1);
+
+    // 电脑滚轮：自由滑动，可停在两图中间
+    window.addEventListener('wheel', e => {
+      e.preventDefault();
+      position += e.deltaY * 1.2;
+      position = Math.max(0, Math.min(position, getMaxPos()));
+      track.style.transform = `translateX(${-position}px)`;
+      currentIndex = Math.round(position / getWidth());
+    }, { passive: false });
+
+    document.addEventListener('touchstart', e => {
+      if (e.touches.length === 1) {
+        startX = e.touches[0].clientX;
+      }
+    });
+
+    // 放大后：允许单指自由滑动，但锁定在当前页，不切图
+    document.addEventListener('touchmove', e => {
+      if (e.touches.length >= 2) return;
+      const scale = window.visualViewport?.scale || 1;
+      if (scale > 1) {
+        // 锁定位置 = 当前页，不允许切换图片
+        position = currentIndex * getWidth();
+        track.style.transform = `translateX(${-position}px)`;
+      }
+    }, { passive: false });
+
+    // 未放大：自动翻页
+    document.addEventListener('touchend', e => {
+      const scale = window.visualViewport?.scale || 1;
+      if (scale > 1) return;
+
+      if (e.changedTouches.length === 1) {
+        const diff = startX - e.changedTouches[0].clientX;
+        if (Math.abs(diff) > 40) {
+          if (diff > 0 && currentIndex < items.length - 1) currentIndex++;
+          if (diff < 0 && currentIndex > 0) currentIndex--;
+        }
+        position = currentIndex * getWidth();
+        track.style.transition = 'transform 0.25s';
+        track.style.transform = `translateX(${-position}px)`;
+        setTimeout(() => track.style.transition = '', 300);
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      position = currentIndex * getWidth();
+      track.style.transform = `translateX(${-position}px)`;
+    });
+  </script>
+</body>
+</html>      <div class="item"><img src="images/14.jpg"></div>
       <div class="item"><img src="images/15.jpg"></div>
       <div class="item"><img src="images/16.jpg"></div>
       <div class="item"><img src="images/17.jpg"></div>
