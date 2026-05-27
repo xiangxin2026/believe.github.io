@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-  <title>郑相鑫2026</title>
+  <title>我的作品集</title>
   <style>
     * {
       margin: 0;
@@ -108,13 +108,13 @@
     let currentIndex = 0;
 
     const getWidth = () => window.innerWidth;
-    const getMaxPos = () => getWidth() * (items.length - 1);
 
     // 电脑滚轮：自由滑动
     window.addEventListener('wheel', e => {
       e.preventDefault();
       position += e.deltaY * 1.2;
-      position = Math.max(0, Math.min(position, getMaxPos()));
+      const maxPos = getWidth() * (items.length - 1);
+      position = Math.max(0, Math.min(position, maxPos));
       track.style.transform = `translateX(${-position}px)`;
       currentIndex = Math.round(position / getWidth());
     }, { passive: false });
@@ -124,27 +124,23 @@
       startX = e.touches[0].clientX;
     });
 
-    // 放大后：自由滑动，但禁止越界
+    // 放大后：锁定当前页，不允许翻页
     document.addEventListener('touchmove', e => {
       const scale = window.visualViewport?.scale || 1;
       if (scale > 1) {
-        position += (startX - e.touches[0].clientX);
-        startX = e.touches[0].clientX;
-        position = Math.max(0, Math.min(position, getMaxPos()));
-        track.style.transform = `translateX(${-position}px)`;
+        e.preventDefault();
+        return;
       }
-    });
+    }, { passive: false });
 
-    // 未放大：降低灵敏度，不立刻翻页
+    // 正常状态：正常灵敏度翻页
     document.addEventListener('touchend', e => {
       const scale = window.visualViewport?.scale || 1;
       if (scale > 1) return;
 
       const diff = startX - e.changedTouches[0].clientX;
-      // 👇 灵敏度：数字越大，要滑越远才翻页
-      const needDistance = 100;
-
-      if (Math.abs(diff) >= needDistance) {
+      // 正常灵敏度，轻轻滑就翻页
+      if (Math.abs(diff) > 20) {
         if (diff > 0 && currentIndex < items.length - 1) currentIndex++;
         if (diff < 0 && currentIndex > 0) currentIndex--;
       }
@@ -153,11 +149,6 @@
       track.style.transition = 'transform 0.3s ease-out';
       track.style.transform = `translateX(${-position}px)`;
       setTimeout(() => track.style.transition = '', 300);
-    });
-
-    window.addEventListener('resize', () => {
-      position = currentIndex * getWidth();
-      track.style.transform = `translateX(${-position}px)`;
     });
   </script>
 </body>
