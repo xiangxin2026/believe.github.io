@@ -2,8 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <!-- 关键：手机不缩放、视口=设备宽度 -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
   <title>作品集</title>
   <style>
     * {
@@ -12,157 +11,96 @@
       box-sizing: border-box;
     }
     html, body {
-      overflow: hidden; /* 只禁页面滚动，保留内部滑动 */
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
       background: #000;
-      touch-action: none; /* 禁止浏览器默认手势，留给JS处理 */
+      position: fixed;
+      left: 0;
+      top: 0;
     }
     .slider {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      overflow: hidden;
-    }
-    .slider-track {
-      display: flex;
+      width: 100%;
       height: 100%;
-      transition: none;
-      will-change: transform;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+      display: flex;
+      flex-wrap: nowrap;
+      scroll-snap-type: x mandatory;
+      scroll-behavior: unset;
     }
     .item {
-      flex: 0 0 auto;
       width: 100vw;
       height: 100vh;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      scroll-snap-align: start;
+      overflow: visible;
     }
     .item img {
       width: 100%;
-      height: 100%;
-      object-fit: cover; /* 无黑边、自动裁切多余部分 */
-      display: block;
+      height: auto;
+      max-height: 100%;
+      object-fit: contain;
       -webkit-user-drag: none;
+      user-select: none;
     }
   </style>
 </head>
 
 <body>
   <div class="slider">
-    <div class="slider-track">
-      <div class="item"><img src="images/1.jpg"></div>
-      <div class="item"><img src="images/2.jpg"></div>
-      <div class="item"><img src="images/3.jpg"></div>
-      <div class="item"><img src="images/4.jpg"></div>
-      <div class="item"><img src="images/5.jpg"></div>
-      <div class="item"><img src="images/6.jpg"></div>
-      <div class="item"><img src="images/7.jpg"></div>
-      <div class="item"><img src="images/8.jpg"></div>
-      <div class="item"><img src="images/9.jpg"></div>
-      <div class="item"><img src="images/10.jpg"></div>
-      <div class="item"><img src="images/11.jpg"></div>
-      <div class="item"><img src="images/12.jpg"></div>
-      <div class="item"><img src="images/13.jpg"></div>
-      <div class="item"><img src="images/14.jpg"></div>
-      <div class="item"><img src="images/15.jpg"></div>
-      <div class="item"><img src="images/16.jpg"></div>
-      <div class="item"><img src="images/17.jpg"></div>
-      <div class="item"><img src="images/18.jpg"></div>
-      <div class="item"><img src="images/19.jpg"></div>
-      <div class="item"><img src="images/20.jpg"></div>
-      <div class="item"><img src="images/21.jpg"></div>
-      <div class="item"><img src="images/22.jpg"></div>
-      <div class="item"><img src="images/23.jpg"></div>
-      <div class="item"><img src="images/24.jpg"></div>
-      <div class="item"><img src="images/25.jpg"></div>
-      <div class="item"><img src="images/26.jpg"></div>
-      <div class="item"><img src="images/27.jpg"></div>
-      <div class="item"><img src="images/28.jpg"></div>
-      <div class="item"><img src="images/29.jpg"></div>
-      <div class="item"><img src="images/30.jpg"></div>
-      <div class="item"><img src="images/31.jpg"></div>
-      <div class="item"><img src="images/32.jpg"></div>
-      <div class="item"><img src="images/33.jpg"></div>
-      <div class="item"><img src="images/34.jpg"></div>
-      <div class="item"><img src="images/35.jpg"></div>
-      <div class="item"><img src="images/36.jpg"></div>
-      <div class="item"><img src="images/37.jpg"></div>
-      <div class="item"><img src="images/38.jpg"></div>
-      <div class="item"><img src="images/39.jpg"></div>
-      <div class="item"><img src="images/40.jpg"></div>
-      <div class="item"><img src="images/41.jpg"></div>
-      <div class="item"><img src="images/42.jpg"></div>
-      <div class="item"><img src="images/43.jpg"></div>
-      <div class="item"><img src="images/44.jpg"></div>
-      <div class="item"><img src="images/45.jpg"></div>
-      <div class="item"><img src="images/46.jpg"></div>
-      <div class="item"><img src="images/47.jpg"></div>
-      <div class="item"><img src="images/48.jpg"></div>
-      <div class="item"><img src="images/49.jpg"></div>
-    </div>
+    <div class="item"><img src="images/1.jpg"></div>
+    <div class="item"><img src="images/2.jpg"></div>
+    <div class="item"><img src="images/3.jpg"></div>
+    <div class="item"><img src="images/4.jpg"></div>
+    <div class="item"><img src="images/5.jpg"></div>
+    <div class="item"><img src="images/6.jpg"></div>
+    <div class="item"><img src="images/7.jpg"></div>
+    <div class="item"><img src="images/8.jpg"></div>
+    <div class="item"><img src="images/9.jpg"></div>
+    <div class="item"><img src="images/10.jpg"></div>
+    <div class="item"><img src="images/11.jpg"></div>
+    <div class="item"><img src="images/12.jpg"></div>
+    <div class="item"><img src="images/13.jpg"></div>
+    <div class="item"><img src="images/14.jpg"></div>
+    <div class="item"><img src="images/15.jpg"></div>
+    <div class="item"><img src="images/16.jpg"></div>
+    <div class="item"><img src="images/17.jpg"></div>
+    <div class="item"><img src="images/18.jpg"></div>
+    <div class="item"><img src="images/19.jpg"></div>
+    <div class="item"><img src="images/20.jpg"></div>
+    <div class="item"><img src="images/21.jpg"></div>
+    <div class="item"><img src="images/22.jpg"></div>
+    <div class="item"><img src="images/23.jpg"></div>
+    <div class="item"><img src="images/24.jpg"></div>
+    <div class="item"><img src="images/25.jpg"></div>
+    <div class="item"><img src="images/26.jpg"></div>
+    <div class="item"><img src="images/27.jpg"></div>
+    <div class="item"><img src="images/28.jpg"></div>
+    <div class="item"><img src="images/29.jpg"></div>
+    <div class="item"><img src="images/30.jpg"></div>
+    <div class="item"><img src="images/31.jpg"></div>
+    <div class="item"><img src="images/32.jpg"></div>
+    <div class="item"><img src="images/33.jpg"></div>
+    <div class="item"><img src="images/34.jpg"></div>
+    <div class="item"><img src="images/35.jpg"></div>
+    <div class="item"><img src="images/36.jpg"></div>
+    <div class="item"><img src="images/37.jpg"></div>
+    <div class="item"><img src="images/38.jpg"></div>
+    <div class="item"><img src="images/39.jpg"></div>
+    <div class="item"><img src="images/40.jpg"></div>
+    <div class="item"><img src="images/41.jpg"></div>
+    <div class="item"><img src="images/42.jpg"></div>
+    <div class="item"><img src="images/43.jpg"></div>
+    <div class="item"><img src="images/44.jpg"></div>
+    <div class="item"><img src="images/45.jpg"></div>
+    <div class="item"><img src="images/46.jpg"></div>
+    <div class="item"><img src="images/47.jpg"></div>
+    <div class="item"><img src="images/48.jpg"></div>
+    <div class="item"><img src="images/49.jpg"></div>
   </div>
-
-  <script>
-    const track = document.querySelector('.slider-track');
-    const items = document.querySelectorAll('.item');
-    let position = 0;
-    const getWidth = () => window.innerWidth;
-
-    // ========== 滚轮（桌面） ==========
-    window.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      position += e.deltaY * 1.2;
-      clampPosition();
-      updateTrack();
-    }, { passive: false });
-
-    // ========== 触摸滑动（手机） ==========
-    let touchStartX = 0;
-    let touchMoveX = 0;
-
-    document.addEventListener('touchstart', (e) => {
-      touchStartX = e.touches[0].clientX;
-    }, { passive: true });
-
-    document.addEventListener('touchmove', (e) => {
-      e.preventDefault();
-      touchMoveX = e.touches[0].clientX;
-      const diff = touchStartX - touchMoveX;
-      position += diff * 0.8; // 滑动灵敏度
-      touchStartX = touchMoveX;
-      clampPosition();
-      updateTrack();
-    }, { passive: false });
-
-    // ========== 键盘 ==========
-    document.addEventListener('keydown', (e) => {
-      const w = getWidth();
-      const currentIndex = Math.round(position / w);
-      if (e.key === 'ArrowRight' && currentIndex < items.length - 1) {
-        position = w * (currentIndex + 1);
-      }
-      if (e.key === 'ArrowLeft' && currentIndex > 0) {
-        position = w * (currentIndex - 1);
-      }
-      updateTrack();
-    });
-
-    function clampPosition() {
-      const w = getWidth();
-      const max = w * (items.length - 1);
-      if (position < 0) position = 0;
-      if (position > max) position = max;
-    }
-
-    function updateTrack() {
-      track.style.transform = `translateX(${-position}px)`;
-    }
-
-    // 窗口大小变化时重新对齐
-    window.addEventListener('resize', () => {
-      const w = getWidth();
-      const currentIndex = Math.round(position / w);
-      position = w * currentIndex;
-      updateTrack();
-    });
-  </script>
 </body>
 </html>
