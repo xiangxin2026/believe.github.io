@@ -41,7 +41,6 @@
       max-height: 100%;
       object-fit: contain;
       -webkit-user-drag: none;
-      user-select: none;
     }
   </style>
 </head>
@@ -106,54 +105,61 @@
     const items = document.querySelectorAll('.item');
     let position = 0;
     let startX = 0;
-    let startY = 0;
+    let currentIndex = 0;
 
     const getWidth = () => window.innerWidth;
     const getMaxPos = () => getWidth() * (items.length - 1);
 
-    // 鼠标滚轮：上下滚动控制横向滑动，可停在两图中间
+    // 电脑滚轮：自由滑动，可停在两图中间
     window.addEventListener('wheel', e => {
       e.preventDefault();
       position += e.deltaY * 1.2;
       position = Math.max(0, Math.min(position, getMaxPos()));
       track.style.transform = `translateX(${-position}px)`;
+      currentIndex = Math.round(position / getWidth());
     }, { passive: false });
 
-    // 触摸起始坐标
     document.addEventListener('touchstart', e => {
       if (e.touches.length === 1) {
         startX = e.touches[0].clientX;
-        startY = e.touches[0].clientY;
       }
     });
 
-    // 触摸移动：只响应左右方向，屏蔽上下偏移
+    // 放大状态：纯自由滑动，不限制上下手势
     document.addEventListener('touchmove', e => {
-      // 双指：交给浏览器原生缩放，不干预
       if (e.touches.length >= 2) return;
-
-      const currX = e.touches[0].clientX;
-      const currY = e.touches[0].clientY;
-      const diffX = startX - currX;
-      const diffY = startY - currY;
-
-      // 判定为主横向滑动，才执行切图
-      if (Math.abs(diffX) > Math.abs(diffY)) {
+      const scale = window.visualViewport?.scale || 1;
+      if (scale > 1) {
         e.preventDefault();
-        position += diffX;
-        startX = currX;
-        startY = currY;
-
+        const dx = startX - e.touches[0].clientX;
+        position += dx;
+        startX = e.touches[0].clientX;
         position = Math.max(0, Math.min(position, getMaxPos()));
         track.style.transform = `translateX(${-position}px)`;
       }
     }, { passive: false });
 
-    // 窗口缩放自动对齐当前图片
+    // 未放大：松手自动吸附到整图
+    document.addEventListener('touchend', e => {
+      const scale = window.visualViewport?.scale || 1;
+      if (scale > 1) return;
+
+      if (e.changedTouches.length === 1) {
+        const diff = startX - e.changedTouches[0].clientX;
+        if (Math.abs(diff) > 40) {
+          if (diff > 0 && currentIndex < items.length - 1) currentIndex++;
+          if (diff < 0 && currentIndex > 0) currentIndex--;
+        }
+        position = currentIndex * getWidth();
+        track.style.transition = 'transform 0.25s';
+        track.style.transform = `translateX(${-position}px)`;
+        setTimeout(() => track.style.transition = '', 300);
+      }
+    });
+
+    // 窗口尺寸变化对齐当前页
     window.addEventListener('resize', () => {
-      const w = getWidth();
-      const index = Math.round(position / w);
-      position = w * index;
+      position = currentIndex * getWidth();
       track.style.transform = `translateX(${-position}px)`;
     });
   </script>
