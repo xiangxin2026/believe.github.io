@@ -2,7 +2,8 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <!-- 关键：手机不缩放、视口=设备宽度 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>作品集</title>
   <style>
     * {
@@ -10,9 +11,10 @@
       padding: 0;
       box-sizing: border-box;
     }
-    body {
-      overflow: hidden;
+    html, body {
+      overflow: hidden; /* 只禁页面滚动，保留内部滑动 */
       background: #000;
+      touch-action: none; /* 禁止浏览器默认手势，留给JS处理 */
     }
     .slider {
       position: fixed;
@@ -29,13 +31,14 @@
       will-change: transform;
     }
     .item {
-      min-width: 100vw;
+      flex: 0 0 auto;
+      width: 100vw;
       height: 100vh;
     }
     .item img {
       width: 100%;
       height: 100%;
-      object-fit: cover;
+      object-fit: cover; /* 无黑边、自动裁切多余部分 */
       display: block;
       -webkit-user-drag: none;
     }
@@ -45,7 +48,6 @@
 <body>
   <div class="slider">
     <div class="slider-track">
-      <!-- 自动生成49个图片项 -->
       <div class="item"><img src="images/1.jpg"></div>
       <div class="item"><img src="images/2.jpg"></div>
       <div class="item"><img src="images/3.jpg"></div>
@@ -102,40 +104,64 @@
     const track = document.querySelector('.slider-track');
     const items = document.querySelectorAll('.item');
     let position = 0;
-    let viewWidth = window.innerWidth;
+    const getWidth = () => window.innerWidth;
 
-    // 窗口大小变化时自动重新适应
-    window.addEventListener('resize', () => {
-      viewWidth = window.innerWidth;
-      const index = Math.round(position / (viewWidth * 0.99));
-      position = index * viewWidth;
-      track.style.transform = `translateX(${-position}px)`;
-    });
-
-    // 滚轮自由滑动（可卡在中间）
+    // ========== 滚轮（桌面） ==========
     window.addEventListener('wheel', (e) => {
       e.preventDefault();
       position += e.deltaY * 1.2;
-
-      // 边界限制（适配49张图片）
-      if (position < 0) position = 0;
-      if (position > viewWidth * (items.length - 1)) {
-        position = viewWidth * (items.length - 1);
-      }
-
-      track.style.transform = `translateX(${-position}px)`;
+      clampPosition();
+      updateTrack();
     }, { passive: false });
 
-    // 键盘左右键切图
+    // ========== 触摸滑动（手机） ==========
+    let touchStartX = 0;
+    let touchMoveX = 0;
+
+    document.addEventListener('touchstart', (e) => {
+      touchStartX = e.touches[0].clientX;
+    }, { passive: true });
+
+    document.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      touchMoveX = e.touches[0].clientX;
+      const diff = touchStartX - touchMoveX;
+      position += diff * 0.8; // 滑动灵敏度
+      touchStartX = touchMoveX;
+      clampPosition();
+      updateTrack();
+    }, { passive: false });
+
+    // ========== 键盘 ==========
     document.addEventListener('keydown', (e) => {
-      const current = Math.round(position / viewWidth);
-      if (e.key === 'ArrowRight') {
-        if (current < items.length - 1) position = (current + 1) * viewWidth;
+      const w = getWidth();
+      const currentIndex = Math.round(position / w);
+      if (e.key === 'ArrowRight' && currentIndex < items.length - 1) {
+        position = w * (currentIndex + 1);
       }
-      if (e.key === 'ArrowLeft') {
-        if (current > 0) position = (current - 1) * viewWidth;
+      if (e.key === 'ArrowLeft' && currentIndex > 0) {
+        position = w * (currentIndex - 1);
       }
+      updateTrack();
+    });
+
+    function clampPosition() {
+      const w = getWidth();
+      const max = w * (items.length - 1);
+      if (position < 0) position = 0;
+      if (position > max) position = max;
+    }
+
+    function updateTrack() {
       track.style.transform = `translateX(${-position}px)`;
+    }
+
+    // 窗口大小变化时重新对齐
+    window.addEventListener('resize', () => {
+      const w = getWidth();
+      const currentIndex = Math.round(position / w);
+      position = w * currentIndex;
+      updateTrack();
     });
   </script>
 </body>
