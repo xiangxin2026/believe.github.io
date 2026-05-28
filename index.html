@@ -37,9 +37,8 @@
     }
     .item img {
       width: 100%;
-      height: auto;
-      max-height: 100%;
-      object-fit: contain;
+      height: 100%;
+      object-fit: cover;
       -webkit-user-drag: none;
     }
   </style>
@@ -106,11 +105,12 @@
     let position = 0;
     let startX = 0;
     let currentIndex = 0;
+    let lastTap = 0;
 
     const getWidth = () => window.innerWidth;
     const getMaxPos = () => getWidth() * (items.length - 1);
 
-    // 电脑滚轮：自由滑动，可停在两图中间
+    // 电脑滚轮
     window.addEventListener('wheel', e => {
       e.preventDefault();
       position += e.deltaY * 1.2;
@@ -119,24 +119,38 @@
       currentIndex = Math.round(position / getWidth());
     }, { passive: false });
 
+    // 双击缩放
+    document.addEventListener('click', e => {
+      const now = Date.now();
+      if (now - lastTap < 300) {
+        e.preventDefault();
+        let view = window.visualViewport;
+        if (view.scale > 1) {
+          document.body.style.zoom = 1;
+        } else {
+          document.body.style.zoom = 2;
+        }
+      }
+      lastTap = now;
+    });
+
     document.addEventListener('touchstart', e => {
       if (e.touches.length === 1) {
         startX = e.touches[0].clientX;
       }
     });
 
-    // 放大后：允许单指自由滑动，但锁定在当前页，不切图
+    // 放大后锁定当前页
     document.addEventListener('touchmove', e => {
       if (e.touches.length >= 2) return;
       const scale = window.visualViewport?.scale || 1;
       if (scale > 1) {
-        // 锁定位置 = 当前页，不允许切换图片
         position = currentIndex * getWidth();
         track.style.transform = `translateX(${-position}px)`;
       }
     }, { passive: false });
 
-    // 未放大：自动翻页
+    // 未放大自动翻页
     document.addEventListener('touchend', e => {
       const scale = window.visualViewport?.scale || 1;
       if (scale > 1) return;
