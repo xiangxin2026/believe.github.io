@@ -9,6 +9,7 @@
       margin: 0;
       padding: 0;
       box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
     }
     html, body {
       width: 100%;
@@ -42,93 +43,45 @@
       object-fit: contain;
       display: block;
     }
-    /* 调试信息 */
-    .debug {
-      position: fixed;
-      bottom: 10px;
-      left: 10px;
-      color: #0f0;
-      background: rgba(0,0,0,0.7);
-      font-size: 10px;
-      font-family: monospace;
-      z-index: 9999;
-      padding: 4px 8px;
-      border-radius: 4px;
-      pointer-events: none;
-    }
   </style>
 </head>
 <body>
 <div class="slider">
   <div class="slider-track" id="track"></div>
 </div>
-<div class="debug" id="debug">初始化中...</div>
 
 <script>
   (function() {
     const TOTAL = 49;
     const track = document.getElementById('track');
-    const debugEl = document.getElementById('debug');
     
-    let loadedCount = 0;
-    let failedCount = 0;
-    
-    function updateDebug() {
-      debugEl.innerHTML = `图片加载: 成功 ${loadedCount} / 失败 ${failedCount} | 共 ${TOTAL} | 滑动试试 →`;
-    }
-    
-    // 生成49张图片
+    // 生成图片
     for (let i = 1; i <= TOTAL; i++) {
       const div = document.createElement('div');
       div.className = 'item';
       const img = document.createElement('img');
-      const imgPath = `images/${i}.jpg`;
-      img.src = imgPath;
+      img.src = `images/${i}.jpg`;
       img.alt = String(i);
-      
-      // 加载成功
-      img.onload = function() {
-        loadedCount++;
-        updateDebug();
-        console.log(`✅ 加载成功: ${imgPath}`);
-      };
-      
-      // 加载失败 - 显示数字占位
       img.onerror = function() {
-        failedCount++;
-        updateDebug();
-        console.warn(`❌ 加载失败: ${imgPath}`);
-        // 创建 canvas 显示序号
         const canvas = document.createElement('canvas');
-        const w = window.innerWidth;
-        const h = window.innerHeight;
-        canvas.width = w;
-        canvas.height = h;
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
         const ctx = canvas.getContext('2d');
         ctx.fillStyle = '#1a1a2e';
-        ctx.fillRect(0, 0, w, h);
-        ctx.fillStyle = '#ffffff';
-        const fontSize = Math.min(w / 5, 100);
-        ctx.font = `${fontSize}px Arial, sans-serif`;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#fff';
+        ctx.font = `${Math.min(window.innerWidth/6, 100)}px Arial`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(`${i}`, w / 2, h / 2 - 30);
-        ctx.font = '18px Arial, sans-serif';
-        ctx.fillStyle = '#888888';
-        ctx.fillText('图片加载失败，请检查 images/ 文件夹', w / 2, h / 2 + 50);
-        ctx.font = '14px monospace';
-        ctx.fillStyle = '#555';
-        ctx.fillText(imgPath, w / 2, h / 2 + 90);
+        ctx.fillText(`${i}`, canvas.width/2, canvas.height/2);
         this.src = canvas.toDataURL();
       };
-      
       div.appendChild(img);
       track.appendChild(div);
     }
     
     let currentIndex = 0;
-    let startX = 0;
-    let startOffset = 0;
+    let currentOffset = 0;      // 当前实际偏移量（像素）
     let isDragging = false;
     let isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     let zoomActive = false;
@@ -136,31 +89,52 @@
     function getWidth() { return window.innerWidth; }
     function getMaxOffset() { return getWidth() * (TOTAL - 1); }
     
-    function setOffset(offset, animate) {
+    // 无过渡设置偏移
+    function setOffsetNoTransition(offset) {
       let val = Math.max(0, Math.min(offset, getMaxOffset()));
-      track.style.transition = animate ? 'transform 0.3s cubic-bezier(0.2, 0.9, 0.4, 1)' : 'none';
+      currentOffset = val;
+      track.style.transition = 'none';
       track.style.transform = `translateX(${-val}px)`;
-      return val;
     }
     
-    function snapToIndex(index, animate) {
-      currentIndex = Math.max(0, Math.min(index, TOTAL - 1));
-      setOffset(currentIndex * getWidth(), animate);
-      updateDebug();
+    // 带动画设置偏移
+    function setOffsetWithTransition(offset, duration = 300) {
+      let val = Math.max(0, Math.min(offset, getMaxOffset()));
+      currentOffset = val;
+      track.style.transition = `transform ${duration}ms cubic-bezier(0.2, 0.9, 0.4, 1)`;
+      track.style.transform = `translateX(${-val}px)`;
+      // 清除过渡样式
+      setTimeout(() => {
+        if (track) track.style.transition = '';
+      }, duration + 50);
     }
     
-    function checkZoom() {
-      if (window.visualViewport) {
-        zoomActive = window.visualViewport.scale > 1.05;
-        if (zoomActive) {
-          debugEl.style.backgroundColor = '#ff6600';
-          debugEl.innerHTML = '🔍 缩放模式 (不可翻页) | ' + debugEl.innerHTML.split('|')[1];
-        } else {
-          debugEl.style.backgroundColor = 'rgba(0,0,0,0.7)';
-        }
+    // 吸附到指定索引（整张图）
+    function snapToIndex(index, animate = true) {
+      let newIndex = Math.max(0, Math.min(index, TOTAL - 1));
+      currentIndex = newIndex;
+      let targetOffset = currentIndex * getWidth();
+      if (animate) {
+        setOffsetWithTransition(targetOffset);
+      } else {
+        setOffsetNoTransition(targetOffset);
       }
     }
     
+    // 更新当前索引（根据偏移量）
+    function updateIndexFromOffset(offset) {
+      let newIndex = Math.round(offset / getWidth());
+      currentIndex = Math.max(0, Math.min(newIndex, TOTAL - 1));
+    }
+    
+    // 检测缩放状态
+    function checkZoom() {
+      if (window.visualViewport) {
+        zoomActive = window.visualViewport.scale > 1.05;
+      }
+    }
+    
+    // 监听缩放变化（手机端）
     if (window.visualViewport && isMobile) {
       window.visualViewport.addEventListener('resize', function() {
         checkZoom();
@@ -171,58 +145,64 @@
       window.visualViewport.addEventListener('scroll', checkZoom);
     }
     
-    // ========== 手机端触摸滑动 ==========
-    let touchStartX = 0, touchEndX = 0;
+    // ========== 手机端：滑动翻页（缩放时禁止翻页） ==========
+    if (isMobile) {
+      let touchStartX = 0, touchStartY = 0, touchEndX = 0, touchEndY = 0;
+      let isSwiping = false;
+      
+      track.addEventListener('touchstart', function(e) {
+        if (e.touches.length !== 1) return;
+        checkZoom();
+        if (zoomActive) return;
+        e.preventDefault();
+        isSwiping = true;
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+      }, { passive: false });
+      
+      track.addEventListener('touchmove', function(e) {
+        if (!isSwiping || zoomActive) return;
+        if (e.touches.length !== 1) return;
+        e.preventDefault();
+        touchEndX = e.touches[0].clientX;
+        touchEndY = e.touches[0].clientY;
+      }, { passive: false });
+      
+      track.addEventListener('touchend', function(e) {
+        if (!isSwiping || zoomActive) {
+          isSwiping = false;
+          return;
+        }
+        isSwiping = false;
+        
+        let deltaX = (touchEndX || touchStartX) - touchStartX;
+        let deltaY = (touchEndY || touchStartY) - touchStartY;
+        
+        if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 40) {
+          if (deltaX > 0) {
+            // 向右滑 -> 上一张
+            if (currentIndex > 0) snapToIndex(currentIndex - 1, true);
+          } else {
+            // 向左滑 -> 下一张
+            if (currentIndex < TOTAL - 1) snapToIndex(currentIndex + 1, true);
+          }
+        }
+        
+        touchStartX = 0; touchStartY = 0; touchEndX = 0; touchEndY = 0;
+      });
+    }
     
-    track.addEventListener('touchstart', function(e) {
-      if (e.touches.length !== 1) return;
-      checkZoom();
-      if (zoomActive) return;
-      e.preventDefault();
-      isDragging = true;
-      startX = e.touches[0].clientX;
-      startOffset = currentIndex * getWidth();
-      track.style.transition = 'none';
-    }, { passive: false });
-    
-    track.addEventListener('touchmove', function(e) {
-      if (!isDragging || zoomActive) return;
-      if (e.touches.length !== 1) return;
-      e.preventDefault();
-      let delta = startX - e.touches[0].clientX;
-      let newOffset = startOffset + delta;
-      let max = getMaxOffset();
-      if (newOffset < 0) newOffset = newOffset * 0.3;
-      if (newOffset > max) newOffset = max + (newOffset - max) * 0.3;
-      track.style.transform = `translateX(${-newOffset}px)`;
-      touchEndX = e.touches[0].clientX;
-    }, { passive: false });
-    
-    track.addEventListener('touchend', function(e) {
-      if (!isDragging || zoomActive) {
-        isDragging = false;
-        return;
-      }
-      isDragging = false;
-      let delta = startX - (touchEndX || startX);
-      let threshold = Math.max(getWidth() * 0.12, 40);
-      if (Math.abs(delta) > threshold) {
-        if (delta > 0 && currentIndex < TOTAL - 1) currentIndex++;
-        if (delta < 0 && currentIndex > 0) currentIndex--;
-      }
-      snapToIndex(currentIndex, true);
-      touchEndX = 0;
-    });
-    
-    // ========== 电脑端鼠标拖拽（渐进） ==========
+    // ========== 电脑端：鼠标拖拽（渐进滚动，可停在中间） ==========
     if (!isMobile) {
-      let mouseStartX = 0, mouseStartOffset = 0, mouseDown = false;
+      let mouseDown = false;
+      let mouseStartX = 0;
+      let mouseStartOffset = 0;
       
       track.addEventListener('mousedown', function(e) {
         e.preventDefault();
         mouseDown = true;
         mouseStartX = e.clientX;
-        mouseStartOffset = currentIndex * getWidth();
+        mouseStartOffset = currentOffset;
         track.style.transition = 'none';
       });
       
@@ -231,77 +211,92 @@
         let delta = mouseStartX - e.clientX;
         let newOffset = mouseStartOffset + delta;
         let max = getMaxOffset();
+        // 边界阻尼
         if (newOffset < 0) newOffset = newOffset * 0.3;
         if (newOffset > max) newOffset = max + (newOffset - max) * 0.3;
+        newOffset = Math.max(-max * 0.2, Math.min(max * 1.2, newOffset));
         track.style.transform = `translateX(${-newOffset}px)`;
+        currentOffset = newOffset;
+        updateIndexFromOffset(newOffset);
       });
       
       window.addEventListener('mouseup', function(e) {
         if (!mouseDown) return;
         mouseDown = false;
-        let transform = track.style.transform;
-        let match = transform.match(/translateX\(-([\d.]+)px\)/);
-        let currentPos = match ? parseFloat(match[1]) : currentIndex * getWidth();
-        currentPos = Math.max(0, Math.min(currentPos, getMaxOffset()));
-        currentIndex = Math.round(currentPos / getWidth());
-        snapToIndex(currentIndex, true);
+        // 钳位到合法范围
+        let clamped = Math.max(0, Math.min(currentOffset, getMaxOffset()));
+        if (Math.abs(clamped - currentOffset) > 1) {
+          setOffsetWithTransition(clamped);
+          currentOffset = clamped;
+          updateIndexFromOffset(clamped);
+        } else {
+          setOffsetNoTransition(clamped);
+          currentOffset = clamped;
+        }
       });
     }
     
-    // ========== 电脑端滚轮（渐进） ==========
+    // ========== 电脑端：滚轮（渐进滚动，一次滚一点，可停在中间） ==========
     if (!isMobile) {
-      let wheelAccum = 0;
       let wheelTimer = null;
       track.addEventListener('wheel', function(e) {
         e.preventDefault();
-        wheelAccum += e.deltaY;
-        if (Math.abs(wheelAccum) > 40) {
-          if (wheelAccum > 0 && currentIndex < TOTAL - 1) currentIndex++;
-          if (wheelAccum < 0 && currentIndex > 0) currentIndex--;
-          snapToIndex(currentIndex, true);
-          wheelAccum = 0;
-        }
+        let step = e.deltaY * 0.8;
+        let newOffset = currentOffset + step;
+        let max = getMaxOffset();
+        // 边界阻尼
+        if (newOffset < 0) newOffset = newOffset * 0.3;
+        if (newOffset > max) newOffset = max + (newOffset - max) * 0.3;
+        newOffset = Math.max(-max * 0.1, Math.min(max * 1.1, newOffset));
+        
+        track.style.transition = 'transform 0.05s linear';
+        track.style.transform = `translateX(${-newOffset}px)`;
+        currentOffset = newOffset;
+        updateIndexFromOffset(newOffset);
+        
         if (wheelTimer) clearTimeout(wheelTimer);
-        wheelTimer = setTimeout(() => { wheelAccum = 0; }, 150);
+        wheelTimer = setTimeout(() => {
+          if (track && !mouseDown) track.style.transition = '';
+        }, 100);
       }, { passive: false });
     }
     
-    // ========== 键盘左右键 ==========
+    // ========== 键盘左右键（直接翻整张） ==========
     window.addEventListener('keydown', function(e) {
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        if (currentIndex > 0) currentIndex--;
-        snapToIndex(currentIndex, true);
+        if (currentIndex > 0) snapToIndex(currentIndex - 1, true);
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
-        if (currentIndex < TOTAL - 1) currentIndex++;
-        snapToIndex(currentIndex, true);
+        if (currentIndex < TOTAL - 1) snapToIndex(currentIndex + 1, true);
       }
     });
     
-    // ========== 双击缩放 ==========
-    let lastTap = 0;
-    track.addEventListener('click', function(e) {
-      let now = Date.now();
-      if (now - lastTap < 300) {
-        e.preventDefault();
-        let meta = document.querySelector('meta[name="viewport"]');
-        let scale = window.visualViewport ? window.visualViewport.scale : 1;
-        if (scale > 1.05) {
-          meta.setAttribute('content', 'width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover');
-          setTimeout(() => {
-            checkZoom();
-            snapToIndex(currentIndex, false);
-          }, 100);
+    // ========== 双击缩放（手机端） ==========
+    if (isMobile) {
+      let lastTap = 0;
+      track.addEventListener('click', function(e) {
+        let now = Date.now();
+        if (now - lastTap < 300) {
+          e.preventDefault();
+          let meta = document.querySelector('meta[name="viewport"]');
+          let currentScale = window.visualViewport ? window.visualViewport.scale : 1;
+          if (currentScale > 1.05) {
+            meta.setAttribute('content', 'width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover');
+            setTimeout(() => {
+              checkZoom();
+              snapToIndex(currentIndex, false);
+            }, 50);
+          } else {
+            meta.setAttribute('content', 'width=device-width, initial-scale=2.0, user-scalable=yes, viewport-fit=cover');
+            setTimeout(checkZoom, 50);
+          }
+          lastTap = 0;
         } else {
-          meta.setAttribute('content', 'width=device-width, initial-scale=2.0, user-scalable=yes, viewport-fit=cover');
-          setTimeout(checkZoom, 100);
+          lastTap = now;
         }
-        lastTap = 0;
-      } else {
-        lastTap = now;
-      }
-    });
+      });
+    }
     
     // 窗口大小改变
     window.addEventListener('resize', function() {
@@ -313,20 +308,7 @@
     
     // 初始位置
     snapToIndex(0, false);
-    setTimeout(() => {
-      checkZoom();
-      updateDebug();
-    }, 500);
-    
-    // 额外提示：如果所有图片都加载失败，提示检查路径
-    setTimeout(() => {
-      if (loadedCount === 0 && failedCount === TOTAL) {
-        debugEl.innerHTML = '⚠️ 所有图片加载失败！请确认 images/ 文件夹下有 1.jpg ~ 49.jpg ⚠️ | 滑动功能正常';
-        debugEl.style.backgroundColor = '#ff0000';
-      } else {
-        updateDebug();
-      }
-    }, 2000);
+    checkZoom();
   })();
 </script>
 </body>
