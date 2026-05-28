@@ -22,6 +22,7 @@
       height: 100%;
       overflow: hidden;
       background: #000;
+      position: relative;
     }
     .slider-track {
       display: flex;
@@ -36,12 +37,24 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
     }
-    /* 统一：宽度100%填满，高度自适应，左右永远无黑边，图片完整显示 */
+    /* 关键：图片宽度100%填满，左右永远无黑边，高度自适应 */
     .item img {
       width: 100%;
       height: auto;
       display: block;
+      pointer-events: none;
+    }
+    /* 手机端允许图片容器滚动来实现缩放后的移动 */
+    @media (max-width: 768px) {
+      .item {
+        overflow: auto;
+      }
+      .item img {
+        pointer-events: auto;
+      }
     }
   </style>
 </head>
@@ -56,6 +69,9 @@
     const track = document.getElementById('track');
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
     
+    // 存储每个item的img元素
+    const images = [];
+    
     // 生成图片
     for (let i = 1; i <= TOTAL; i++) {
       const div = document.createElement('div');
@@ -63,6 +79,7 @@
       const img = document.createElement('img');
       img.src = `images/${i}.jpg`;
       img.alt = String(i);
+      img.style.transformOrigin = 'center center';
       img.onerror = function() {
         const canvas = document.createElement('canvas');
         canvas.width = window.innerWidth;
@@ -79,18 +96,37 @@
       };
       div.appendChild(img);
       track.appendChild(div);
+      images.push(img);
     }
     
     let currentIndex = 0;
     let currentOffset = 0;
     let isZoomed = false;
+    let isDragging = false;
     
     function getWidth() { return window.innerWidth; }
     function getMaxOffset() { return getWidth() * (TOTAL - 1); }
     
+    // 检测当前是否缩放（通过 visualViewport.scale）
     function updateZoomStatus() {
       if (window.visualViewport) {
         isZoomed = window.visualViewport.scale > 1.05;
+      }
+      // 缩放状态改变时，控制滑动容器的行为
+      if (isMobile) {
+        const items = document.querySelectorAll('.item');
+        items.forEach(item => {
+          if (isZoomed) {
+            // 缩放时允许图片容器滚动，让用户可以在放大图内移动
+            item.style.overflow = 'auto';
+          } else {
+            // 缩小时禁止滚动，恢复滑动翻页
+            item.style.overflow = 'hidden';
+            // 重置图片容器的滚动位置
+            item.scrollLeft = 0;
+            item.scrollTop = 0;
+          }
+        });
       }
     }
     
@@ -132,25 +168,31 @@
       window.visualViewport.addEventListener('resize', function() {
         updateZoomStatus();
         if (!isZoomed) {
+          // 完全缩小后，对齐到当前图片
           snapToIndex(currentIndex, false);
         }
       });
       window.visualViewport.addEventListener('scroll', updateZoomStatus);
     }
     
-    // ========== 手机端：滑动翻页（缩放时禁止） ==========
+    // ========== 手机端：滑动翻页（缩放时完全禁止翻页，让图片容器内滚动） ==========
     if (isMobile) {
       let touchStartX = 0, touchStartY = 0, touchEndX = 0, touchEndY = 0;
       let isSwiping = false;
+      let currentItem = null;
       
       track.addEventListener('touchstart', function(e) {
         updateZoomStatus();
         if (e.touches.length !== 1) return;
+        
+        // 缩放时，不处理翻页，让图片容器自己处理滚动
         if (isZoomed) return;
+        
         e.preventDefault();
         isSwiping = true;
         touchStartX = e.touches[0].clientX;
         touchStartY = e.touches[0].clientY;
+        currentItem = track;
       }, { passive: false });
       
       track.addEventListener('touchmove', function(e) {
@@ -200,12 +242,20 @@
           let meta = document.querySelector('meta[name="viewport"]');
           let currentScale = window.visualViewport ? window.visualViewport.scale : 1;
           if (currentScale > 1.05) {
+            // 缩小
             meta.setAttribute('content', 'width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover');
             setTimeout(() => {
               updateZoomStatus();
               snapToIndex(currentIndex, false);
+              // 重置所有图片容器的滚动位置
+              const items = document.querySelectorAll('.item');
+              items.forEach(item => {
+                item.scrollLeft = 0;
+                item.scrollTop = 0;
+              });
             }, 100);
           } else {
+            // 放大
             meta.setAttribute('content', 'width=device-width, initial-scale=2.5, user-scalable=yes, viewport-fit=cover');
             setTimeout(updateZoomStatus, 100);
           }
@@ -257,7 +307,7 @@
       });
     }
     
-    // ========== 电脑端：滚轮（渐进滚动，一次滚一点，可停在中间） ==========
+    // ========== 电脑端：滚轮（渐进滚动） ==========
     if (!isMobile) {
       let wheelTimer = null;
       track.addEventListener('wheel', function(e) {
