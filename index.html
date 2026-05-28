@@ -58,7 +58,6 @@
       overflow: hidden;
     }
 
-    /* 宽度100%填满，高度自适应，左右永远无黑边 */
     .item img {
       width: 100%;
       height: auto;
@@ -95,18 +94,19 @@
     let currentOffset = 0;
     let transitionTimer = null;
     let wheelAnimationId = null;
-    
-    // 当前图片索引（用于键盘翻页和边界判断）
     let currentIndex = 0;
     
-    // 检测是否为移动端
+    // 检测移动端
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || ('ontouchstart' in window && window.innerWidth <= 768);
+    
+    // 缩放状态标记
+    let isZoomed = false;
+    let lastViewportScale = 1;
     
     const getViewportWidth = () => window.innerWidth;
     const getMaxOffset = () => getViewportWidth() * (TOTAL_IMAGES - 1);
     const clampOffset = (offset) => Math.max(0, Math.min(offset, getMaxOffset()));
     
-    // 根据偏移量更新当前索引
     const updateIndexFromOffset = (offset) => {
       const width = getViewportWidth();
       if (width === 0) return;
@@ -114,7 +114,6 @@
       currentIndex = Math.max(0, Math.min(newIndex, TOTAL_IMAGES - 1));
     };
     
-    // 无过渡设置偏移
     const setOffsetNoTransition = (offset) => {
       if (!track) return;
       const clamped = clampOffset(offset);
@@ -124,7 +123,6 @@
       track.style.transform = `translateX(${-clamped}px)`;
     };
     
-    // 带动画设置偏移
     const animateToOffset = (target, duration = 200) => {
       if (!track) return;
       if (wheelAnimationId) cancelAnimationFrame(wheelAnimationId);
@@ -152,7 +150,6 @@
       wheelAnimationId = requestAnimationFrame(step);
     };
     
-    // 翻页功能（用于键盘和手机端滑动）
     const goPrev = () => {
       let newIndex = currentIndex - 1;
       if (newIndex < 0) newIndex = 0;
@@ -171,12 +168,25 @@
       animateToOffset(targetOffset, 250);
     };
     
-    // ========== 电脑端：渐进滚动（可以停在任意位置） ==========
+    // 检测当前是否处于缩放状态（通过 visualViewport.scale）
+    const checkZoomStatus = () => {
+      if (window.visualViewport) {
+        const newScale = window.visualViewport.scale;
+        // 缩放比例大于1.05 或者 缩放比例与上次变化超过0.05
+        if (newScale > 1.05) {
+          isZoomed = true;
+        } else {
+          isZoomed = false;
+        }
+        lastViewportScale = newScale;
+      }
+    };
+    
+    // ========== 电脑端：渐进滚动 ==========
     let isMouseDragging = false;
     let mouseStartX = 0;
     let mouseStartOffset = 0;
     
-    // 鼠标拖拽（电脑端跟手拖动）
     const onMouseDown = (e) => {
       if (isMobile) return;
       e.preventDefault();
@@ -194,7 +204,6 @@
       let newOffset = mouseStartOffset + deltaX;
       const maxOff = getMaxOffset();
       const minOff = 0;
-      // 边界阻尼
       if (newOffset < minOff) {
         newOffset = minOff - (minOff - newOffset) * 0.3;
       } else if (newOffset > maxOff) {
@@ -208,7 +217,6 @@
     const onMouseUp = () => {
       if (!isMouseDragging || isMobile) return;
       isMouseDragging = false;
-      // 松手后保持在当前位置，只做边界钳位（不自动吸附到整张图）
       const clamped = clampOffset(currentOffset);
       if (Math.abs(clamped - currentOffset) > 0.5) {
         animateToOffset(clamped, 150);
@@ -219,23 +227,19 @@
       mouseStartOffset = 0;
     };
     
-    // 滚轮（电脑端渐进滚动）
-    let wheelAccumulator = 0;
+    // 电脑端滚轮
     let wheelTimer = null;
-    
     const handleWheel = (e) => {
       if (isMobile) return;
       e.preventDefault();
       if (isMouseDragging) return;
       
-      // 平滑累积滚动，每次滚动一小段距离
       const delta = e.deltaY;
       let step = delta * 0.8;
       let newOffset = currentOffset + step;
       const maxOff = getMaxOffset();
       const minOff = 0;
       
-      // 边界阻尼
       if (newOffset < minOff) {
         newOffset = minOff - (minOff - newOffset) * 0.3;
       } else if (newOffset > maxOff) {
@@ -255,20 +259,44 @@
       currentOffset = newOffset;
       updateIndexFromOffset(newOffset);
       
-      // 滚轮停止后不吸附，保持当前位置
       if (wheelTimer) clearTimeout(wheelTimer);
     };
     
-    // ========== 手机端：滑动直接切换下一张/上一张 ==========
+    // ========== 手机端：缩小时才能翻页 ==========
     let touchStartX = 0;
     let touchStartY = 0;
     let touchEndX = 0;
     let touchEndY = 0;
     let isTouching = false;
     
+    // 监听 visualViewport 缩放变化
+    if (window.visualViewport && isMobile) {
+      window.visualViewport.addEventListener('resize', () => {
+        checkZoomStatus();
+        // 缩放结束后，确保当前偏移量正确
+        setTimeout(() => {
+          const targetOffset = currentIndex * getViewportWidth();
+          setOffsetNoTransition(targetOffset);
+        }, 50);
+      });
+      window.visualViewport.addEventListener('scroll', () => {
+        checkZoomStatus();
+      });
+    }
+    
     const onTouchStart = (e) => {
       if (!isMobile) return;
       if (e.touches.length !== 1) return;
+      
+      // 检查当前缩放状态
+      checkZoomStatus();
+      
+      // 如果处于放大状态，不允许滑动翻页（但让浏览器处理缩放内的移动）
+      if (isZoomed) {
+        // 不做任何翻页相关的记录，让浏览器默认处理缩放内的平移
+        return;
+      }
+      
       e.preventDefault();
       isTouching = true;
       touchStartX = e.touches[0].clientX;
@@ -277,6 +305,7 @@
     
     const onTouchMove = (e) => {
       if (!isMobile || !isTouching) return;
+      if (isZoomed) return;
       if (e.touches.length !== 1) return;
       e.preventDefault();
       touchEndX = e.touches[0].clientX;
@@ -285,8 +314,17 @@
     
     const onTouchEnd = (e) => {
       if (!isMobile || !isTouching) return;
-      e.preventDefault();
       isTouching = false;
+      
+      // 再次检查缩放状态，如果缩放中就不翻页
+      checkZoomStatus();
+      if (isZoomed) {
+        touchStartX = 0;
+        touchStartY = 0;
+        touchEndX = 0;
+        touchEndY = 0;
+        return;
+      }
       
       const deltaX = touchEndX - touchStartX;
       const deltaY = touchEndY - touchStartY;
@@ -294,12 +332,10 @@
       // 水平滑动且距离足够
       if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 40) {
         if (deltaX > 0) {
-          // 向右滑 -> 上一张
           if (currentIndex > 0) {
             goPrev();
           }
         } else {
-          // 向左滑 -> 下一张
           if (currentIndex < TOTAL_IMAGES - 1) {
             goNext();
           }
@@ -312,24 +348,19 @@
       touchEndY = 0;
     };
     
-    // ========== 键盘事件（两端都支持） ==========
+    // ========== 键盘事件 ==========
     const onKeyDown = (e) => {
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
         e.preventDefault();
       }
       if (e.key === 'ArrowLeft') {
-        if (isMobile) {
-          goPrev();
-        } else {
-          // 电脑端键盘也支持渐进？不，键盘直接翻页更符合习惯
-          goPrev();
-        }
+        goPrev();
       } else if (e.key === 'ArrowRight') {
         goNext();
       }
     };
     
-    // ========== 双击缩放（手机端和电脑端都支持） ==========
+    // ========== 双击缩放 ==========
     let lastTapTime = 0;
     let clickTimer = null;
     
@@ -341,10 +372,16 @@
         let currentScale = window.visualViewport ? window.visualViewport.scale : 1;
         if (currentScale > 1.05) {
           viewportMeta.setAttribute('content', 'width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover');
-          setTimeout(() => setOffsetNoTransition(clampOffset(currentOffset)), 30);
+          setTimeout(() => {
+            const targetOffset = currentIndex * getViewportWidth();
+            setOffsetNoTransition(targetOffset);
+            isZoomed = false;
+          }, 50);
         } else {
           viewportMeta.setAttribute('content', 'width=device-width, initial-scale=2.0, user-scalable=yes, viewport-fit=cover');
-          setTimeout(() => setOffsetNoTransition(clampOffset(currentOffset)), 30);
+          setTimeout(() => {
+            isZoomed = true;
+          }, 50);
         }
         lastTapTime = 0;
         return;
@@ -366,20 +403,22 @@
       }
     };
     
-    // ========== 窗口缩放 ==========
+    // 窗口缩放
     const handleResize = () => {
       if (!track) return;
       const targetOffset = currentIndex * getViewportWidth();
       setOffsetNoTransition(targetOffset);
+      checkZoomStatus();
     };
     
     const onViewportResize = () => {
       if (!track) return;
       const targetOffset = currentIndex * getViewportWidth();
       setOffsetNoTransition(targetOffset);
+      checkZoomStatus();
     };
     
-    // ========== 生成图片 ==========
+    // 生成图片
     const buildSlides = () => {
       if (!track) return;
       track.innerHTML = '';
@@ -393,7 +432,6 @@
         img.alt = `slide ${i}`;
         
         img.onerror = function() {
-          console.warn(`图片加载失败: ${this.src}`);
           const canvas = document.createElement('canvas');
           canvas.width = window.innerWidth;
           canvas.height = window.innerHeight;
@@ -417,7 +455,7 @@
       track.appendChild(fragment);
     };
     
-    // 预加载相邻图片
+    // 预加载
     const preloadAdjacent = () => {
       const indices = [currentIndex - 1, currentIndex, currentIndex + 1];
       indices.forEach(idx => {
@@ -434,7 +472,6 @@
       preloadTimer = setTimeout(preloadAdjacent, 200);
     };
     
-    // 监听偏移变化预加载
     const originalSetOffset = setOffsetNoTransition;
     setOffsetNoTransition = function(offset) {
       originalSetOffset(offset);
@@ -444,26 +481,20 @@
     // 绑定事件
     const bindEvents = () => {
       if (isMobile) {
-        // 手机端：触摸滑动直接切换
         track.addEventListener('touchstart', onTouchStart, { passive: false });
         track.addEventListener('touchmove', onTouchMove, { passive: false });
         track.addEventListener('touchend', onTouchEnd);
       } else {
-        // 电脑端：鼠标拖拽渐进滚动 + 滚轮渐进滚动
         track.addEventListener('mousedown', onMouseDown);
         window.addEventListener('mousemove', onMouseMove);
         window.addEventListener('mouseup', onMouseUp);
         window.addEventListener('wheel', handleWheel, { passive: false });
       }
       
-      // 键盘事件（两端都支持）
       window.addEventListener('keydown', onKeyDown);
-      
-      // 双击缩放（两端都支持）
       document.addEventListener('click', onGlobalClick);
-      
-      // 窗口变化
       window.addEventListener('resize', handleResize);
+      
       if (window.visualViewport) {
         window.visualViewport.addEventListener('resize', onViewportResize);
         window.visualViewport.addEventListener('scroll', onViewportResize);
@@ -478,6 +509,7 @@
       currentIndex = 0;
       setOffsetNoTransition(0);
       preloadAdjacent();
+      checkZoomStatus();
     };
     
     init();
