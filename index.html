@@ -31,14 +31,15 @@
       width: 100vw;
       height: 100vh;
       flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     .item img {
       width: 100%;
       height: auto;
       display: block;
-      position: relative;
-      top: 50%;
-      transform: translateY(-50%);
+      -webkit-user-drag: none;
     }
   </style>
 </head>
@@ -104,12 +105,10 @@
     let position = 0;
     let startX = 0;
     let currentIndex = 0;
-    let lastTap = 0;
 
     const getWidth = () => window.innerWidth;
     const getMaxPos = () => getWidth() * (items.length - 1);
 
-    // 滚轮滑动
     window.addEventListener('wheel', e => {
       e.preventDefault();
       position += e.deltaY * 1.2;
@@ -118,28 +117,12 @@
       currentIndex = Math.round(position / getWidth());
     }, { passive: false });
 
-    // 双击缩放
-    document.addEventListener('click', e => {
-      const now = Date.now();
-      if (now - lastTap < 300) {
-        e.preventDefault();
-        let view = window.visualViewport;
-        if (view.scale > 1) {
-          document.body.style.zoom = 1;
-        } else {
-          document.body.style.zoom = 2;
-        }
-      }
-      lastTap = now;
-    });
-
     document.addEventListener('touchstart', e => {
       if (e.touches.length === 1) {
         startX = e.touches[0].clientX;
       }
     });
 
-    // 放大锁定当前图
     document.addEventListener('touchmove', e => {
       if (e.touches.length >= 2) return;
       const scale = window.visualViewport?.scale || 1;
@@ -149,7 +132,6 @@
       }
     }, { passive: false });
 
-    // 正常滑动翻页
     document.addEventListener('touchend', e => {
       const scale = window.visualViewport?.scale || 1;
       if (scale > 1) return;
