@@ -38,19 +38,15 @@
       justify-content: center;
       overflow: hidden;
     }
-    /* 默认电脑端：cover 左右无黑边 */
+    /* 电脑端默认：cover 左右填满无黑边，图片铺满全屏 */
     .item img {
       width: 100%;
       height: 100%;
       object-fit: cover;
       display: block;
     }
-    /* 手机端单独：宽度100%填满，高度自适应，左右无黑边，图片完整显示 */
+    /* 手机端：宽度100%填满，高度自适应，图片完整显示不裁剪，左右无黑边 */
     @media (max-width: 768px) {
-      .item {
-        align-items: center;
-        justify-content: center;
-      }
       .item img {
         width: 100%;
         height: auto;
@@ -230,7 +226,7 @@
       });
     }
     
-    // ========== 电脑端：鼠标拖拽（渐进） ==========
+    // ========== 电脑端：鼠标拖拽（渐进滚动，可停在中间） ==========
     if (!isMobile) {
       let mouseDown = false;
       let mouseStartX = 0;
@@ -271,7 +267,7 @@
       });
     }
     
-    // ========== 电脑端：滚轮（渐进） ==========
+    // ========== 电脑端：滚轮（渐进滚动，一次滚一点，可停在中间） ==========
     if (!isMobile) {
       let wheelTimer = null;
       track.addEventListener('wheel', function(e) {
@@ -294,7 +290,7 @@
       }, { passive: false });
     }
     
-    // ========== 键盘 ==========
+    // ========== 键盘左右键（直接翻整张） ==========
     window.addEventListener('keydown', function(e) {
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
@@ -305,7 +301,7 @@
       }
     });
     
-    // 窗口缩放
+    // 窗口大小改变
     window.addEventListener('resize', function() {
       setTimeout(() => {
         snapToIndex(currentIndex, false);
