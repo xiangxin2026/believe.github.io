@@ -42,41 +42,86 @@
       object-fit: contain;
       display: block;
     }
+    /* 调试信息 */
+    .debug {
+      position: fixed;
+      bottom: 10px;
+      left: 10px;
+      color: #0f0;
+      background: rgba(0,0,0,0.7);
+      font-size: 10px;
+      font-family: monospace;
+      z-index: 9999;
+      padding: 4px 8px;
+      border-radius: 4px;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
 <div class="slider">
   <div class="slider-track" id="track"></div>
 </div>
+<div class="debug" id="debug">初始化中...</div>
 
 <script>
   (function() {
     const TOTAL = 49;
     const track = document.getElementById('track');
+    const debugEl = document.getElementById('debug');
+    
+    let loadedCount = 0;
+    let failedCount = 0;
+    
+    function updateDebug() {
+      debugEl.innerHTML = `图片加载: 成功 ${loadedCount} / 失败 ${failedCount} | 共 ${TOTAL} | 滑动试试 →`;
+    }
     
     // 生成49张图片
     for (let i = 1; i <= TOTAL; i++) {
       const div = document.createElement('div');
       div.className = 'item';
       const img = document.createElement('img');
-      img.src = `images/${i}.jpg`;
+      const imgPath = `images/${i}.jpg`;
+      img.src = imgPath;
       img.alt = String(i);
+      
+      // 加载成功
+      img.onload = function() {
+        loadedCount++;
+        updateDebug();
+        console.log(`✅ 加载成功: ${imgPath}`);
+      };
+      
+      // 加载失败 - 显示数字占位
       img.onerror = function() {
-        // 图片加载失败时显示数字
-        this.style.objectFit = 'contain';
+        failedCount++;
+        updateDebug();
+        console.warn(`❌ 加载失败: ${imgPath}`);
+        // 创建 canvas 显示序号
         const canvas = document.createElement('canvas');
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        canvas.width = w;
+        canvas.height = h;
         const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#222';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#fff';
-        ctx.font = `${Math.min(window.innerWidth/6, 100)}px Arial`;
+        ctx.fillStyle = '#1a1a2e';
+        ctx.fillRect(0, 0, w, h);
+        ctx.fillStyle = '#ffffff';
+        const fontSize = Math.min(w / 5, 100);
+        ctx.font = `${fontSize}px Arial, sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(`${i}`, canvas.width/2, canvas.height/2);
+        ctx.fillText(`${i}`, w / 2, h / 2 - 30);
+        ctx.font = '18px Arial, sans-serif';
+        ctx.fillStyle = '#888888';
+        ctx.fillText('图片加载失败，请检查 images/ 文件夹', w / 2, h / 2 + 50);
+        ctx.font = '14px monospace';
+        ctx.fillStyle = '#555';
+        ctx.fillText(imgPath, w / 2, h / 2 + 90);
         this.src = canvas.toDataURL();
       };
+      
       div.appendChild(img);
       track.appendChild(div);
     }
@@ -86,7 +131,7 @@
     let startOffset = 0;
     let isDragging = false;
     let isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    let zoomActive = false;  // 是否处于缩放状态
+    let zoomActive = false;
     
     function getWidth() { return window.innerWidth; }
     function getMaxOffset() { return getWidth() * (TOTAL - 1); }
@@ -101,33 +146,38 @@
     function snapToIndex(index, animate) {
       currentIndex = Math.max(0, Math.min(index, TOTAL - 1));
       setOffset(currentIndex * getWidth(), animate);
+      updateDebug();
     }
     
-    // 检测缩放状态
     function checkZoom() {
       if (window.visualViewport) {
         zoomActive = window.visualViewport.scale > 1.05;
+        if (zoomActive) {
+          debugEl.style.backgroundColor = '#ff6600';
+          debugEl.innerHTML = '🔍 缩放模式 (不可翻页) | ' + debugEl.innerHTML.split('|')[1];
+        } else {
+          debugEl.style.backgroundColor = 'rgba(0,0,0,0.7)';
+        }
       }
     }
     
-    // 监听缩放变化
     if (window.visualViewport && isMobile) {
       window.visualViewport.addEventListener('resize', function() {
         checkZoom();
         if (!zoomActive) {
-          // 缩小时对齐到当前图片
           snapToIndex(currentIndex, false);
         }
       });
+      window.visualViewport.addEventListener('scroll', checkZoom);
     }
     
-    // ========== 手机端触摸 ==========
+    // ========== 手机端触摸滑动 ==========
     let touchStartX = 0, touchEndX = 0;
     
     track.addEventListener('touchstart', function(e) {
       if (e.touches.length !== 1) return;
       checkZoom();
-      if (zoomActive) return;  // 缩放中不允许翻页
+      if (zoomActive) return;
       e.preventDefault();
       isDragging = true;
       startX = e.touches[0].clientX;
@@ -155,8 +205,8 @@
       }
       isDragging = false;
       let delta = startX - (touchEndX || startX);
-      let threshold = getWidth() * 0.12;
-      if (Math.abs(delta) > threshold && Math.abs(delta) > 40) {
+      let threshold = Math.max(getWidth() * 0.12, 40);
+      if (Math.abs(delta) > threshold) {
         if (delta > 0 && currentIndex < TOTAL - 1) currentIndex++;
         if (delta < 0 && currentIndex > 0) currentIndex--;
       }
@@ -164,7 +214,7 @@
       touchEndX = 0;
     });
     
-    // ========== 电脑端鼠标拖拽（渐进，可停中间） ==========
+    // ========== 电脑端鼠标拖拽（渐进） ==========
     if (!isMobile) {
       let mouseStartX = 0, mouseStartOffset = 0, mouseDown = false;
       
@@ -189,31 +239,30 @@
       window.addEventListener('mouseup', function(e) {
         if (!mouseDown) return;
         mouseDown = false;
-        // 获取当前实际位置
         let transform = track.style.transform;
         let match = transform.match(/translateX\(-([\d.]+)px\)/);
         let currentPos = match ? parseFloat(match[1]) : currentIndex * getWidth();
-        // 钳位到边界
         currentPos = Math.max(0, Math.min(currentPos, getMaxOffset()));
-        // 计算最近索引（但不清除当前偏移，保持渐进效果）
         currentIndex = Math.round(currentPos / getWidth());
         snapToIndex(currentIndex, true);
       });
     }
     
-    // ========== 电脑端滚轮 ==========
+    // ========== 电脑端滚轮（渐进） ==========
     if (!isMobile) {
       let wheelAccum = 0;
+      let wheelTimer = null;
       track.addEventListener('wheel', function(e) {
         e.preventDefault();
         wheelAccum += e.deltaY;
-        if (Math.abs(wheelAccum) > 50) {
+        if (Math.abs(wheelAccum) > 40) {
           if (wheelAccum > 0 && currentIndex < TOTAL - 1) currentIndex++;
           if (wheelAccum < 0 && currentIndex > 0) currentIndex--;
           snapToIndex(currentIndex, true);
           wheelAccum = 0;
         }
-        setTimeout(() => { wheelAccum = 0; }, 200);
+        if (wheelTimer) clearTimeout(wheelTimer);
+        wheelTimer = setTimeout(() => { wheelAccum = 0; }, 150);
       }, { passive: false });
     }
     
@@ -230,7 +279,7 @@
       }
     });
     
-    // ========== 双击缩放（手机端） ==========
+    // ========== 双击缩放 ==========
     let lastTap = 0;
     track.addEventListener('click', function(e) {
       let now = Date.now();
@@ -240,8 +289,13 @@
         let scale = window.visualViewport ? window.visualViewport.scale : 1;
         if (scale > 1.05) {
           meta.setAttribute('content', 'width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover');
+          setTimeout(() => {
+            checkZoom();
+            snapToIndex(currentIndex, false);
+          }, 100);
         } else {
           meta.setAttribute('content', 'width=device-width, initial-scale=2.0, user-scalable=yes, viewport-fit=cover');
+          setTimeout(checkZoom, 100);
         }
         lastTap = 0;
       } else {
@@ -251,11 +305,28 @@
     
     // 窗口大小改变
     window.addEventListener('resize', function() {
-      snapToIndex(currentIndex, false);
+      setTimeout(() => {
+        snapToIndex(currentIndex, false);
+        checkZoom();
+      }, 50);
     });
     
     // 初始位置
     snapToIndex(0, false);
+    setTimeout(() => {
+      checkZoom();
+      updateDebug();
+    }, 500);
+    
+    // 额外提示：如果所有图片都加载失败，提示检查路径
+    setTimeout(() => {
+      if (loadedCount === 0 && failedCount === TOTAL) {
+        debugEl.innerHTML = '⚠️ 所有图片加载失败！请确认 images/ 文件夹下有 1.jpg ~ 49.jpg ⚠️ | 滑动功能正常';
+        debugEl.style.backgroundColor = '#ff0000';
+      } else {
+        updateDebug();
+      }
+    }, 2000);
   })();
 </script>
 </body>
