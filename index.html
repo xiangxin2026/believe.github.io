@@ -1,518 +1,261 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
   <title>郑相鑫2026</title>
   <style>
     * {
       margin: 0;
       padding: 0;
-      border: 0;
       box-sizing: border-box;
-      -webkit-tap-highlight-color: transparent;
     }
-
     html, body {
       width: 100%;
       height: 100%;
-      background: #000000;
+      background: #000;
       overflow: hidden;
-      position: fixed;
-      top: 0;
-      left: 0;
     }
-
     .slider {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
+      width: 100%;
+      height: 100%;
       overflow: hidden;
-      background: #000000;
+      background: #000;
     }
-
     .slider-track {
       display: flex;
-      flex-direction: row;
-      flex-wrap: nowrap;
-      height: 100vh;
-      width: auto;
-      gap: 0;
-      margin: 0;
-      padding: 0;
-      will-change: transform;
+      height: 100%;
+      width: 100%;
     }
-
     .item {
-      flex: 0 0 100vw;
-      height: 100vh;
-      margin: 0;
-      padding: 0;
-      border: none;
-      background: #000000;
+      flex-shrink: 0;
+      width: 100%;
+      height: 100%;
       display: flex;
       align-items: center;
       justify-content: center;
-      overflow: hidden;
+      background: #000;
     }
-
     .item img {
       width: 100%;
-      height: auto;
+      height: 100%;
+      object-fit: contain;
       display: block;
-      margin: 0;
-      padding: 0;
-      border: 0;
-      pointer-events: none;
-      user-select: none;
-      -webkit-user-drag: none;
-    }
-
-    ::-webkit-scrollbar {
-      display: none;
-    }
-
-    body {
-      touch-action: pan-y pinch-zoom;
     }
   </style>
 </head>
 <body>
 <div class="slider">
-  <div class="slider-track" id="sliderTrack"></div>
+  <div class="slider-track" id="track"></div>
 </div>
 
 <script>
   (function() {
-    const TOTAL_IMAGES = 49;
-    const IMAGE_BASE = 'images/';
-    const IMAGE_EXT = '.jpg';
-
-    const track = document.getElementById('sliderTrack');
-    let currentOffset = 0;
-    let transitionTimer = null;
-    let wheelAnimationId = null;
-    let currentIndex = 0;
+    const TOTAL = 49;
+    const track = document.getElementById('track');
     
-    // 检测移动端
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || ('ontouchstart' in window && window.innerWidth <= 768);
-    
-    // 缩放状态标记
-    let isZoomed = false;
-    let lastViewportScale = 1;
-    
-    const getViewportWidth = () => window.innerWidth;
-    const getMaxOffset = () => getViewportWidth() * (TOTAL_IMAGES - 1);
-    const clampOffset = (offset) => Math.max(0, Math.min(offset, getMaxOffset()));
-    
-    const updateIndexFromOffset = (offset) => {
-      const width = getViewportWidth();
-      if (width === 0) return;
-      const newIndex = Math.round(offset / width);
-      currentIndex = Math.max(0, Math.min(newIndex, TOTAL_IMAGES - 1));
-    };
-    
-    const setOffsetNoTransition = (offset) => {
-      if (!track) return;
-      const clamped = clampOffset(offset);
-      currentOffset = clamped;
-      updateIndexFromOffset(clamped);
-      track.style.transition = 'none';
-      track.style.transform = `translateX(${-clamped}px)`;
-    };
-    
-    const animateToOffset = (target, duration = 200) => {
-      if (!track) return;
-      if (wheelAnimationId) cancelAnimationFrame(wheelAnimationId);
-      if (transitionTimer) clearTimeout(transitionTimer);
-      
-      const startOffset = currentOffset;
-      const targetClamped = clampOffset(target);
-      const diff = targetClamped - startOffset;
-      if (Math.abs(diff) < 0.5) return;
-      
-      const startTime = performance.now();
-      const step = (now) => {
-        const elapsed = now - startTime;
-        let t = Math.min(1, elapsed / duration);
-        const ease = 1 - Math.pow(1 - t, 3);
-        const newOffset = startOffset + diff * ease;
-        setOffsetNoTransition(newOffset);
-        if (t < 1) {
-          wheelAnimationId = requestAnimationFrame(step);
-        } else {
-          setOffsetNoTransition(targetClamped);
-          wheelAnimationId = null;
-        }
+    // 生成49张图片
+    for (let i = 1; i <= TOTAL; i++) {
+      const div = document.createElement('div');
+      div.className = 'item';
+      const img = document.createElement('img');
+      img.src = `images/${i}.jpg`;
+      img.alt = String(i);
+      img.onerror = function() {
+        // 图片加载失败时显示数字
+        this.style.objectFit = 'contain';
+        const canvas = document.createElement('canvas');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#222';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#fff';
+        ctx.font = `${Math.min(window.innerWidth/6, 100)}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`${i}`, canvas.width/2, canvas.height/2);
+        this.src = canvas.toDataURL();
       };
-      wheelAnimationId = requestAnimationFrame(step);
-    };
+      div.appendChild(img);
+      track.appendChild(div);
+    }
     
-    const goPrev = () => {
-      let newIndex = currentIndex - 1;
-      if (newIndex < 0) newIndex = 0;
-      if (newIndex === currentIndex) return;
-      currentIndex = newIndex;
-      const targetOffset = currentIndex * getViewportWidth();
-      animateToOffset(targetOffset, 250);
-    };
+    let currentIndex = 0;
+    let startX = 0;
+    let startOffset = 0;
+    let isDragging = false;
+    let isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    let zoomActive = false;  // 是否处于缩放状态
     
-    const goNext = () => {
-      let newIndex = currentIndex + 1;
-      if (newIndex >= TOTAL_IMAGES) newIndex = TOTAL_IMAGES - 1;
-      if (newIndex === currentIndex) return;
-      currentIndex = newIndex;
-      const targetOffset = currentIndex * getViewportWidth();
-      animateToOffset(targetOffset, 250);
-    };
+    function getWidth() { return window.innerWidth; }
+    function getMaxOffset() { return getWidth() * (TOTAL - 1); }
     
-    // 检测当前是否处于缩放状态（通过 visualViewport.scale）
-    const checkZoomStatus = () => {
+    function setOffset(offset, animate) {
+      let val = Math.max(0, Math.min(offset, getMaxOffset()));
+      track.style.transition = animate ? 'transform 0.3s cubic-bezier(0.2, 0.9, 0.4, 1)' : 'none';
+      track.style.transform = `translateX(${-val}px)`;
+      return val;
+    }
+    
+    function snapToIndex(index, animate) {
+      currentIndex = Math.max(0, Math.min(index, TOTAL - 1));
+      setOffset(currentIndex * getWidth(), animate);
+    }
+    
+    // 检测缩放状态
+    function checkZoom() {
       if (window.visualViewport) {
-        const newScale = window.visualViewport.scale;
-        // 缩放比例大于1.05 或者 缩放比例与上次变化超过0.05
-        if (newScale > 1.05) {
-          isZoomed = true;
-        } else {
-          isZoomed = false;
-        }
-        lastViewportScale = newScale;
+        zoomActive = window.visualViewport.scale > 1.05;
       }
-    };
+    }
     
-    // ========== 电脑端：渐进滚动 ==========
-    let isMouseDragging = false;
-    let mouseStartX = 0;
-    let mouseStartOffset = 0;
-    
-    const onMouseDown = (e) => {
-      if (isMobile) return;
-      e.preventDefault();
-      if (wheelAnimationId) cancelAnimationFrame(wheelAnimationId);
-      isMouseDragging = true;
-      mouseStartX = e.clientX;
-      mouseStartOffset = currentOffset;
-      if (transitionTimer) clearTimeout(transitionTimer);
-      if (track) track.style.transition = 'none';
-    };
-    
-    const onMouseMove = (e) => {
-      if (!isMouseDragging || isMobile) return;
-      const deltaX = mouseStartX - e.clientX;
-      let newOffset = mouseStartOffset + deltaX;
-      const maxOff = getMaxOffset();
-      const minOff = 0;
-      if (newOffset < minOff) {
-        newOffset = minOff - (minOff - newOffset) * 0.3;
-      } else if (newOffset > maxOff) {
-        newOffset = maxOff + (newOffset - maxOff) * 0.3;
-      }
-      if (track) track.style.transform = `translateX(${-newOffset}px)`;
-      currentOffset = newOffset;
-      updateIndexFromOffset(newOffset);
-    };
-    
-    const onMouseUp = () => {
-      if (!isMouseDragging || isMobile) return;
-      isMouseDragging = false;
-      const clamped = clampOffset(currentOffset);
-      if (Math.abs(clamped - currentOffset) > 0.5) {
-        animateToOffset(clamped, 150);
-      } else {
-        setOffsetNoTransition(clamped);
-      }
-      mouseStartX = 0;
-      mouseStartOffset = 0;
-    };
-    
-    // 电脑端滚轮
-    let wheelTimer = null;
-    const handleWheel = (e) => {
-      if (isMobile) return;
-      e.preventDefault();
-      if (isMouseDragging) return;
-      
-      const delta = e.deltaY;
-      let step = delta * 0.8;
-      let newOffset = currentOffset + step;
-      const maxOff = getMaxOffset();
-      const minOff = 0;
-      
-      if (newOffset < minOff) {
-        newOffset = minOff - (minOff - newOffset) * 0.3;
-      } else if (newOffset > maxOff) {
-        newOffset = maxOff + (newOffset - maxOff) * 0.3;
-      }
-      
-      newOffset = clampOffset(newOffset);
-      
-      if (track) {
-        track.style.transition = 'transform 0.05s linear';
-        track.style.transform = `translateX(${-newOffset}px)`;
-        if (transitionTimer) clearTimeout(transitionTimer);
-        transitionTimer = setTimeout(() => {
-          if (track && !isMouseDragging) track.style.transition = '';
-        }, 80);
-      }
-      currentOffset = newOffset;
-      updateIndexFromOffset(newOffset);
-      
-      if (wheelTimer) clearTimeout(wheelTimer);
-    };
-    
-    // ========== 手机端：缩小时才能翻页 ==========
-    let touchStartX = 0;
-    let touchStartY = 0;
-    let touchEndX = 0;
-    let touchEndY = 0;
-    let isTouching = false;
-    
-    // 监听 visualViewport 缩放变化
+    // 监听缩放变化
     if (window.visualViewport && isMobile) {
-      window.visualViewport.addEventListener('resize', () => {
-        checkZoomStatus();
-        // 缩放结束后，确保当前偏移量正确
-        setTimeout(() => {
-          const targetOffset = currentIndex * getViewportWidth();
-          setOffsetNoTransition(targetOffset);
-        }, 50);
-      });
-      window.visualViewport.addEventListener('scroll', () => {
-        checkZoomStatus();
+      window.visualViewport.addEventListener('resize', function() {
+        checkZoom();
+        if (!zoomActive) {
+          // 缩小时对齐到当前图片
+          snapToIndex(currentIndex, false);
+        }
       });
     }
     
-    const onTouchStart = (e) => {
-      if (!isMobile) return;
-      if (e.touches.length !== 1) return;
-      
-      // 检查当前缩放状态
-      checkZoomStatus();
-      
-      // 如果处于放大状态，不允许滑动翻页（但让浏览器处理缩放内的移动）
-      if (isZoomed) {
-        // 不做任何翻页相关的记录，让浏览器默认处理缩放内的平移
-        return;
-      }
-      
-      e.preventDefault();
-      isTouching = true;
-      touchStartX = e.touches[0].clientX;
-      touchStartY = e.touches[0].clientY;
-    };
+    // ========== 手机端触摸 ==========
+    let touchStartX = 0, touchEndX = 0;
     
-    const onTouchMove = (e) => {
-      if (!isMobile || !isTouching) return;
-      if (isZoomed) return;
+    track.addEventListener('touchstart', function(e) {
+      if (e.touches.length !== 1) return;
+      checkZoom();
+      if (zoomActive) return;  // 缩放中不允许翻页
+      e.preventDefault();
+      isDragging = true;
+      startX = e.touches[0].clientX;
+      startOffset = currentIndex * getWidth();
+      track.style.transition = 'none';
+    }, { passive: false });
+    
+    track.addEventListener('touchmove', function(e) {
+      if (!isDragging || zoomActive) return;
       if (e.touches.length !== 1) return;
       e.preventDefault();
+      let delta = startX - e.touches[0].clientX;
+      let newOffset = startOffset + delta;
+      let max = getMaxOffset();
+      if (newOffset < 0) newOffset = newOffset * 0.3;
+      if (newOffset > max) newOffset = max + (newOffset - max) * 0.3;
+      track.style.transform = `translateX(${-newOffset}px)`;
       touchEndX = e.touches[0].clientX;
-      touchEndY = e.touches[0].clientY;
-    };
+    }, { passive: false });
     
-    const onTouchEnd = (e) => {
-      if (!isMobile || !isTouching) return;
-      isTouching = false;
-      
-      // 再次检查缩放状态，如果缩放中就不翻页
-      checkZoomStatus();
-      if (isZoomed) {
-        touchStartX = 0;
-        touchStartY = 0;
-        touchEndX = 0;
-        touchEndY = 0;
+    track.addEventListener('touchend', function(e) {
+      if (!isDragging || zoomActive) {
+        isDragging = false;
         return;
       }
-      
-      const deltaX = touchEndX - touchStartX;
-      const deltaY = touchEndY - touchStartY;
-      
-      // 水平滑动且距离足够
-      if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 40) {
-        if (deltaX > 0) {
-          if (currentIndex > 0) {
-            goPrev();
-          }
-        } else {
-          if (currentIndex < TOTAL_IMAGES - 1) {
-            goNext();
-          }
-        }
+      isDragging = false;
+      let delta = startX - (touchEndX || startX);
+      let threshold = getWidth() * 0.12;
+      if (Math.abs(delta) > threshold && Math.abs(delta) > 40) {
+        if (delta > 0 && currentIndex < TOTAL - 1) currentIndex++;
+        if (delta < 0 && currentIndex > 0) currentIndex--;
       }
-      
-      touchStartX = 0;
-      touchStartY = 0;
+      snapToIndex(currentIndex, true);
       touchEndX = 0;
-      touchEndY = 0;
-    };
+    });
     
-    // ========== 键盘事件 ==========
-    const onKeyDown = (e) => {
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-        e.preventDefault();
-      }
-      if (e.key === 'ArrowLeft') {
-        goPrev();
-      } else if (e.key === 'ArrowRight') {
-        goNext();
-      }
-    };
-    
-    // ========== 双击缩放 ==========
-    let lastTapTime = 0;
-    let clickTimer = null;
-    
-    const handleDoubleTap = (e) => {
-      const now = Date.now();
-      if (now - lastTapTime < 300) {
-        e.preventDefault();
-        const viewportMeta = document.querySelector('meta[name="viewport"]');
-        let currentScale = window.visualViewport ? window.visualViewport.scale : 1;
-        if (currentScale > 1.05) {
-          viewportMeta.setAttribute('content', 'width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover');
-          setTimeout(() => {
-            const targetOffset = currentIndex * getViewportWidth();
-            setOffsetNoTransition(targetOffset);
-            isZoomed = false;
-          }, 50);
-        } else {
-          viewportMeta.setAttribute('content', 'width=device-width, initial-scale=2.0, user-scalable=yes, viewport-fit=cover');
-          setTimeout(() => {
-            isZoomed = true;
-          }, 50);
-        }
-        lastTapTime = 0;
-        return;
-      }
-      lastTapTime = now;
-    };
-    
-    const onGlobalClick = (e) => {
-      const now = Date.now();
-      if (now - lastTapTime < 300 && lastTapTime !== 0) {
-        e.preventDefault();
-        handleDoubleTap(e);
-        lastTapTime = 0;
-        if (clickTimer) clearTimeout(clickTimer);
-      } else {
-        lastTapTime = now;
-        if (clickTimer) clearTimeout(clickTimer);
-        clickTimer = setTimeout(() => { lastTapTime = 0; }, 310);
-      }
-    };
-    
-    // 窗口缩放
-    const handleResize = () => {
-      if (!track) return;
-      const targetOffset = currentIndex * getViewportWidth();
-      setOffsetNoTransition(targetOffset);
-      checkZoomStatus();
-    };
-    
-    const onViewportResize = () => {
-      if (!track) return;
-      const targetOffset = currentIndex * getViewportWidth();
-      setOffsetNoTransition(targetOffset);
-      checkZoomStatus();
-    };
-    
-    // 生成图片
-    const buildSlides = () => {
-      if (!track) return;
-      track.innerHTML = '';
-      const fragment = document.createDocumentFragment();
+    // ========== 电脑端鼠标拖拽（渐进，可停中间） ==========
+    if (!isMobile) {
+      let mouseStartX = 0, mouseStartOffset = 0, mouseDown = false;
       
-      for (let i = 1; i <= TOTAL_IMAGES; i++) {
-        const itemDiv = document.createElement('div');
-        itemDiv.className = 'item';
-        const img = document.createElement('img');
-        img.src = `${IMAGE_BASE}${i}${IMAGE_EXT}`;
-        img.alt = `slide ${i}`;
-        
-        img.onerror = function() {
-          const canvas = document.createElement('canvas');
-          canvas.width = window.innerWidth;
-          canvas.height = window.innerHeight;
-          const ctx = canvas.getContext('2d');
-          ctx.fillStyle = '#1a1a2e';
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-          ctx.fillStyle = '#ffffff';
-          ctx.font = `${Math.min(window.innerWidth / 10, 80)}px Arial`;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(`${i}`, canvas.width / 2, canvas.height / 2);
-          ctx.font = '20px Arial';
-          ctx.fillStyle = '#888888';
-          ctx.fillText('图片加载失败', canvas.width / 2, canvas.height / 2 + 60);
-          this.src = canvas.toDataURL();
-        };
-        
-        itemDiv.appendChild(img);
-        fragment.appendChild(itemDiv);
-      }
-      track.appendChild(fragment);
-    };
-    
-    // 预加载
-    const preloadAdjacent = () => {
-      const indices = [currentIndex - 1, currentIndex, currentIndex + 1];
-      indices.forEach(idx => {
-        if (idx >= 0 && idx < TOTAL_IMAGES) {
-          const img = new Image();
-          img.src = `${IMAGE_BASE}${idx + 1}${IMAGE_EXT}`;
-        }
+      track.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        mouseDown = true;
+        mouseStartX = e.clientX;
+        mouseStartOffset = currentIndex * getWidth();
+        track.style.transition = 'none';
       });
-    };
+      
+      window.addEventListener('mousemove', function(e) {
+        if (!mouseDown) return;
+        let delta = mouseStartX - e.clientX;
+        let newOffset = mouseStartOffset + delta;
+        let max = getMaxOffset();
+        if (newOffset < 0) newOffset = newOffset * 0.3;
+        if (newOffset > max) newOffset = max + (newOffset - max) * 0.3;
+        track.style.transform = `translateX(${-newOffset}px)`;
+      });
+      
+      window.addEventListener('mouseup', function(e) {
+        if (!mouseDown) return;
+        mouseDown = false;
+        // 获取当前实际位置
+        let transform = track.style.transform;
+        let match = transform.match(/translateX\(-([\d.]+)px\)/);
+        let currentPos = match ? parseFloat(match[1]) : currentIndex * getWidth();
+        // 钳位到边界
+        currentPos = Math.max(0, Math.min(currentPos, getMaxOffset()));
+        // 计算最近索引（但不清除当前偏移，保持渐进效果）
+        currentIndex = Math.round(currentPos / getWidth());
+        snapToIndex(currentIndex, true);
+      });
+    }
     
-    let preloadTimer = null;
-    const debouncedPreload = () => {
-      if (preloadTimer) clearTimeout(preloadTimer);
-      preloadTimer = setTimeout(preloadAdjacent, 200);
-    };
+    // ========== 电脑端滚轮 ==========
+    if (!isMobile) {
+      let wheelAccum = 0;
+      track.addEventListener('wheel', function(e) {
+        e.preventDefault();
+        wheelAccum += e.deltaY;
+        if (Math.abs(wheelAccum) > 50) {
+          if (wheelAccum > 0 && currentIndex < TOTAL - 1) currentIndex++;
+          if (wheelAccum < 0 && currentIndex > 0) currentIndex--;
+          snapToIndex(currentIndex, true);
+          wheelAccum = 0;
+        }
+        setTimeout(() => { wheelAccum = 0; }, 200);
+      }, { passive: false });
+    }
     
-    const originalSetOffset = setOffsetNoTransition;
-    setOffsetNoTransition = function(offset) {
-      originalSetOffset(offset);
-      debouncedPreload();
-    };
+    // ========== 键盘左右键 ==========
+    window.addEventListener('keydown', function(e) {
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        if (currentIndex > 0) currentIndex--;
+        snapToIndex(currentIndex, true);
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        if (currentIndex < TOTAL - 1) currentIndex++;
+        snapToIndex(currentIndex, true);
+      }
+    });
     
-    // 绑定事件
-    const bindEvents = () => {
-      if (isMobile) {
-        track.addEventListener('touchstart', onTouchStart, { passive: false });
-        track.addEventListener('touchmove', onTouchMove, { passive: false });
-        track.addEventListener('touchend', onTouchEnd);
+    // ========== 双击缩放（手机端） ==========
+    let lastTap = 0;
+    track.addEventListener('click', function(e) {
+      let now = Date.now();
+      if (now - lastTap < 300) {
+        e.preventDefault();
+        let meta = document.querySelector('meta[name="viewport"]');
+        let scale = window.visualViewport ? window.visualViewport.scale : 1;
+        if (scale > 1.05) {
+          meta.setAttribute('content', 'width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover');
+        } else {
+          meta.setAttribute('content', 'width=device-width, initial-scale=2.0, user-scalable=yes, viewport-fit=cover');
+        }
+        lastTap = 0;
       } else {
-        track.addEventListener('mousedown', onMouseDown);
-        window.addEventListener('mousemove', onMouseMove);
-        window.addEventListener('mouseup', onMouseUp);
-        window.addEventListener('wheel', handleWheel, { passive: false });
+        lastTap = now;
       }
-      
-      window.addEventListener('keydown', onKeyDown);
-      document.addEventListener('click', onGlobalClick);
-      window.addEventListener('resize', handleResize);
-      
-      if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', onViewportResize);
-        window.visualViewport.addEventListener('scroll', onViewportResize);
-      }
-    };
+    });
     
-    // 初始化
-    const init = () => {
-      buildSlides();
-      bindEvents();
-      currentOffset = 0;
-      currentIndex = 0;
-      setOffsetNoTransition(0);
-      preloadAdjacent();
-      checkZoomStatus();
-    };
+    // 窗口大小改变
+    window.addEventListener('resize', function() {
+      snapToIndex(currentIndex, false);
+    });
     
-    init();
+    // 初始位置
+    snapToIndex(0, false);
   })();
 </script>
 </body>
