@@ -93,15 +93,10 @@
 
     const track = document.getElementById('sliderTrack');
     let currentOffset = 0;
-    let isDragging = false;
-    let dragStartX = 0;
-    let dragStartOffset = 0;
     let transitionTimer = null;
     let wheelAnimationId = null;
-    let wheelDebounceTimer = null;
-    let pinchActive = false;
     
-    // 当前显示的图片索引（基于实际偏移计算，用于键盘翻页）
+    // 当前图片索引（用于键盘翻页和边界判断）
     let currentIndex = 0;
     
     // 检测是否为移动端
@@ -119,6 +114,7 @@
       currentIndex = Math.max(0, Math.min(newIndex, TOTAL_IMAGES - 1));
     };
     
+    // 无过渡设置偏移
     const setOffsetNoTransition = (offset) => {
       if (!track) return;
       const clamped = clampOffset(offset);
@@ -128,6 +124,7 @@
       track.style.transform = `translateX(${-clamped}px)`;
     };
     
+    // 带动画设置偏移
     const animateToOffset = (target, duration = 200) => {
       if (!track) return;
       if (wheelAnimationId) cancelAnimationFrame(wheelAnimationId);
@@ -155,109 +152,36 @@
       wheelAnimationId = requestAnimationFrame(step);
     };
     
-    // 翻页功能：上一张
+    // 翻页功能（用于键盘和手机端滑动）
     const goPrev = () => {
-      if (isDragging || mouseDragging) return;
       let newIndex = currentIndex - 1;
       if (newIndex < 0) newIndex = 0;
       if (newIndex === currentIndex) return;
-      const targetOffset = newIndex * getViewportWidth();
+      currentIndex = newIndex;
+      const targetOffset = currentIndex * getViewportWidth();
       animateToOffset(targetOffset, 250);
     };
     
-    // 翻页功能：下一张
     const goNext = () => {
-      if (isDragging || mouseDragging) return;
       let newIndex = currentIndex + 1;
       if (newIndex >= TOTAL_IMAGES) newIndex = TOTAL_IMAGES - 1;
       if (newIndex === currentIndex) return;
-      const targetOffset = newIndex * getViewportWidth();
+      currentIndex = newIndex;
+      const targetOffset = currentIndex * getViewportWidth();
       animateToOffset(targetOffset, 250);
     };
     
-    // 键盘事件
-    const onKeyDown = (e) => {
-      // 防止页面滚动
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-        e.preventDefault();
-      }
-      if (e.key === 'ArrowLeft') {
-        goPrev();
-      } else if (e.key === 'ArrowRight') {
-        goNext();
-      }
-    };
-    
-    // ========== 手机端触摸事件：滑动直接切换下一张/上一张，平滑流畅 ==========
-    let touchStartX = 0;
-    let touchStartY = 0;
-    let touchEndX = 0;
-    let touchEndY = 0;
-    let isMobileDragging = false;
-    
-    const onTouchStart = (e) => {
-      if (e.touches.length === 2) { pinchActive = true; return; }
-      if (e.touches.length !== 1) return;
-      
-      pinchActive = false;
-      isMobileDragging = true;
-      touchStartX = e.touches[0].clientX;
-      touchStartY = e.touches[0].clientY;
-      
-      // 停止任何正在进行的动画
-      if (wheelAnimationId) cancelAnimationFrame(wheelAnimationId);
-    };
-    
-    const onTouchMove = (e) => {
-      if (pinchActive) return;
-      if (!isMobileDragging || e.touches.length !== 1) return;
-      // 手机端不跟手拖动，只记录结束位置
-      touchEndX = e.touches[0].clientX;
-      touchEndY = e.touches[0].clientY;
-    };
-    
-    const onTouchEnd = (e) => {
-      if (pinchActive) { pinchActive = false; isMobileDragging = false; return; }
-      if (!isMobileDragging) return;
-      
-      isMobileDragging = false;
-      
-      // 计算滑动距离
-      const deltaX = touchEndX - touchStartX;
-      const deltaY = touchEndY - touchStartY;
-      
-      // 判断是否为水平滑动（水平滑动距离大于垂直滑动距离）
-      if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 30) {
-        if (deltaX > 0) {
-          // 向右滑动 -> 上一张
-          if (currentIndex > 0) {
-            goPrev();
-          }
-        } else {
-          // 向左滑动 -> 下一张
-          if (currentIndex < TOTAL_IMAGES - 1) {
-            goNext();
-          }
-        }
-      }
-      
-      // 重置
-      touchStartX = 0;
-      touchStartY = 0;
-      touchEndX = 0;
-      touchEndY = 0;
-    };
-    
-    // ========== 电脑端鼠标拖拽（保持原有渐进滚动） ==========
-    let mouseDragging = false;
+    // ========== 电脑端：渐进滚动（可以停在任意位置） ==========
+    let isMouseDragging = false;
     let mouseStartX = 0;
     let mouseStartOffset = 0;
     
+    // 鼠标拖拽（电脑端跟手拖动）
     const onMouseDown = (e) => {
       if (isMobile) return;
       e.preventDefault();
       if (wheelAnimationId) cancelAnimationFrame(wheelAnimationId);
-      mouseDragging = true;
+      isMouseDragging = true;
       mouseStartX = e.clientX;
       mouseStartOffset = currentOffset;
       if (transitionTimer) clearTimeout(transitionTimer);
@@ -265,11 +189,12 @@
     };
     
     const onMouseMove = (e) => {
-      if (!mouseDragging || isMobile) return;
+      if (!isMouseDragging || isMobile) return;
       const deltaX = mouseStartX - e.clientX;
       let newOffset = mouseStartOffset + deltaX;
       const maxOff = getMaxOffset();
       const minOff = 0;
+      // 边界阻尼
       if (newOffset < minOff) {
         newOffset = minOff - (minOff - newOffset) * 0.3;
       } else if (newOffset > maxOff) {
@@ -281,8 +206,9 @@
     };
     
     const onMouseUp = () => {
-      if (!mouseDragging || isMobile) return;
-      mouseDragging = false;
+      if (!isMouseDragging || isMobile) return;
+      isMouseDragging = false;
+      // 松手后保持在当前位置，只做边界钳位（不自动吸附到整张图）
       const clamped = clampOffset(currentOffset);
       if (Math.abs(clamped - currentOffset) > 0.5) {
         animateToOffset(clamped, 150);
@@ -293,33 +219,114 @@
       mouseStartOffset = 0;
     };
     
-    // ========== 电脑端滚轮（保持原有渐进滚动） ==========
+    // 滚轮（电脑端渐进滚动）
+    let wheelAccumulator = 0;
+    let wheelTimer = null;
+    
     const handleWheel = (e) => {
       if (isMobile) return;
       e.preventDefault();
-      if (isDragging || mouseDragging) return;
+      if (isMouseDragging) return;
+      
+      // 平滑累积滚动，每次滚动一小段距离
       const delta = e.deltaY;
-      let step = delta * 1.2;
+      let step = delta * 0.8;
       let newOffset = currentOffset + step;
       const maxOff = getMaxOffset();
       const minOff = 0;
+      
+      // 边界阻尼
       if (newOffset < minOff) {
-        newOffset = minOff - (minOff - newOffset) * 0.4;
+        newOffset = minOff - (minOff - newOffset) * 0.3;
       } else if (newOffset > maxOff) {
-        newOffset = maxOff + (newOffset - maxOff) * 0.4;
+        newOffset = maxOff + (newOffset - maxOff) * 0.3;
       }
+      
       newOffset = clampOffset(newOffset);
+      
       if (track) {
-        track.style.transition = 'transform 0.08s linear';
+        track.style.transition = 'transform 0.05s linear';
         track.style.transform = `translateX(${-newOffset}px)`;
         if (transitionTimer) clearTimeout(transitionTimer);
         transitionTimer = setTimeout(() => {
-          if (track && !isDragging && !mouseDragging) track.style.transition = '';
-        }, 100);
+          if (track && !isMouseDragging) track.style.transition = '';
+        }, 80);
       }
       currentOffset = newOffset;
       updateIndexFromOffset(newOffset);
-      if (wheelDebounceTimer) clearTimeout(wheelDebounceTimer);
+      
+      // 滚轮停止后不吸附，保持当前位置
+      if (wheelTimer) clearTimeout(wheelTimer);
+    };
+    
+    // ========== 手机端：滑动直接切换下一张/上一张 ==========
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchEndX = 0;
+    let touchEndY = 0;
+    let isTouching = false;
+    
+    const onTouchStart = (e) => {
+      if (!isMobile) return;
+      if (e.touches.length !== 1) return;
+      e.preventDefault();
+      isTouching = true;
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    };
+    
+    const onTouchMove = (e) => {
+      if (!isMobile || !isTouching) return;
+      if (e.touches.length !== 1) return;
+      e.preventDefault();
+      touchEndX = e.touches[0].clientX;
+      touchEndY = e.touches[0].clientY;
+    };
+    
+    const onTouchEnd = (e) => {
+      if (!isMobile || !isTouching) return;
+      e.preventDefault();
+      isTouching = false;
+      
+      const deltaX = touchEndX - touchStartX;
+      const deltaY = touchEndY - touchStartY;
+      
+      // 水平滑动且距离足够
+      if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 40) {
+        if (deltaX > 0) {
+          // 向右滑 -> 上一张
+          if (currentIndex > 0) {
+            goPrev();
+          }
+        } else {
+          // 向左滑 -> 下一张
+          if (currentIndex < TOTAL_IMAGES - 1) {
+            goNext();
+          }
+        }
+      }
+      
+      touchStartX = 0;
+      touchStartY = 0;
+      touchEndX = 0;
+      touchEndY = 0;
+    };
+    
+    // ========== 键盘事件（两端都支持） ==========
+    const onKeyDown = (e) => {
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        e.preventDefault();
+      }
+      if (e.key === 'ArrowLeft') {
+        if (isMobile) {
+          goPrev();
+        } else {
+          // 电脑端键盘也支持渐进？不，键盘直接翻页更符合习惯
+          goPrev();
+        }
+      } else if (e.key === 'ArrowRight') {
+        goNext();
+      }
     };
     
     // ========== 双击缩放（手机端和电脑端都支持） ==========
@@ -359,18 +366,20 @@
       }
     };
     
-    // 窗口缩放
+    // ========== 窗口缩放 ==========
     const handleResize = () => {
       if (!track) return;
-      setOffsetNoTransition(clampOffset(currentOffset));
+      const targetOffset = currentIndex * getViewportWidth();
+      setOffsetNoTransition(targetOffset);
     };
     
     const onViewportResize = () => {
       if (!track) return;
-      setOffsetNoTransition(clampOffset(currentOffset));
+      const targetOffset = currentIndex * getViewportWidth();
+      setOffsetNoTransition(targetOffset);
     };
     
-    // 生成图片
+    // ========== 生成图片 ==========
     const buildSlides = () => {
       if (!track) return;
       track.innerHTML = '';
@@ -408,7 +417,7 @@
       track.appendChild(fragment);
     };
     
-    // 预加载
+    // 预加载相邻图片
     const preloadAdjacent = () => {
       const indices = [currentIndex - 1, currentIndex, currentIndex + 1];
       indices.forEach(idx => {
@@ -425,19 +434,25 @@
       preloadTimer = setTimeout(preloadAdjacent, 200);
     };
     
+    // 监听偏移变化预加载
+    const originalSetOffset = setOffsetNoTransition;
+    setOffsetNoTransition = function(offset) {
+      originalSetOffset(offset);
+      debouncedPreload();
+    };
+    
     // 绑定事件
     const bindEvents = () => {
-      // 手机端触摸滑动（直接切换）
       if (isMobile) {
+        // 手机端：触摸滑动直接切换
         track.addEventListener('touchstart', onTouchStart, { passive: false });
         track.addEventListener('touchmove', onTouchMove, { passive: false });
         track.addEventListener('touchend', onTouchEnd);
       } else {
-        // 电脑端鼠标拖拽
-        document.addEventListener('mousedown', onMouseDown);
+        // 电脑端：鼠标拖拽渐进滚动 + 滚轮渐进滚动
+        track.addEventListener('mousedown', onMouseDown);
         window.addEventListener('mousemove', onMouseMove);
         window.addEventListener('mouseup', onMouseUp);
-        // 电脑端滚轮
         window.addEventListener('wheel', handleWheel, { passive: false });
       }
       
