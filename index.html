@@ -32,15 +32,14 @@
       flex-shrink: 0;
       width: 100%;
       height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
       background: #000;
+      overflow: hidden;
     }
+    /* 关键：cover 保证左右永远填满无黑边 */
     .item img {
       width: 100%;
       height: 100%;
-      object-fit: contain;
+      object-fit: cover;
       display: block;
     }
   </style>
@@ -63,6 +62,7 @@
       img.src = `images/${i}.jpg`;
       img.alt = String(i);
       img.onerror = function() {
+        // 图片加载失败显示序号
         const canvas = document.createElement('canvas');
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
@@ -84,19 +84,17 @@
     let currentOffset = 0;
     let isDragging = false;
     let isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    let isZoomed = false;  // 是否处于缩放状态
+    let isZoomed = false;
     
     function getWidth() { return window.innerWidth; }
     function getMaxOffset() { return getWidth() * (TOTAL - 1); }
     
-    // 检测当前是否缩放（通过 visualViewport.scale）
     function updateZoomStatus() {
       if (window.visualViewport) {
         isZoomed = window.visualViewport.scale > 1.05;
       }
     }
     
-    // 无过渡设置偏移
     function setOffsetNoTransition(offset) {
       let val = Math.max(0, Math.min(offset, getMaxOffset()));
       currentOffset = val;
@@ -104,7 +102,6 @@
       track.style.transform = `translateX(${-val}px)`;
     }
     
-    // 带动画设置偏移
     function setOffsetWithTransition(offset, duration = 300) {
       let val = Math.max(0, Math.min(offset, getMaxOffset()));
       currentOffset = val;
@@ -115,7 +112,6 @@
       }, duration + 50);
     }
     
-    // 吸附到指定索引
     function snapToIndex(index, animate = true) {
       let newIndex = Math.max(0, Math.min(index, TOTAL - 1));
       currentIndex = newIndex;
@@ -127,25 +123,23 @@
       }
     }
     
-    // 更新索引（根据偏移）
     function updateIndexFromOffset(offset) {
       let newIndex = Math.round(offset / getWidth());
       currentIndex = Math.max(0, Math.min(newIndex, TOTAL - 1));
     }
     
-    // ========== 手机端：缩放监听 + 缩放时禁止滑动翻页 ==========
+    // 缩放监听
     if (isMobile && window.visualViewport) {
       window.visualViewport.addEventListener('resize', function() {
         updateZoomStatus();
         if (!isZoomed) {
-          // 完全缩小后，对齐到当前图片
           snapToIndex(currentIndex, false);
         }
       });
       window.visualViewport.addEventListener('scroll', updateZoomStatus);
     }
     
-    // ========== 手机端：触摸滑动（缩放时完全禁止翻页） ==========
+    // ========== 手机端：滑动翻页（缩放时禁止） ==========
     if (isMobile) {
       let touchStartX = 0, touchStartY = 0, touchEndX = 0, touchEndY = 0;
       let isSwiping = false;
@@ -153,7 +147,6 @@
       track.addEventListener('touchstart', function(e) {
         updateZoomStatus();
         if (e.touches.length !== 1) return;
-        // 缩放时不允许翻页
         if (isZoomed) return;
         e.preventDefault();
         isSwiping = true;
@@ -198,7 +191,7 @@
       });
     }
     
-    // ========== 手机端：双击缩放（手动触发缩放） ==========
+    // ========== 手机端：双击缩放 ==========
     if (isMobile) {
       let lastTap = 0;
       track.addEventListener('click', function(e) {
@@ -208,14 +201,12 @@
           let meta = document.querySelector('meta[name="viewport"]');
           let currentScale = window.visualViewport ? window.visualViewport.scale : 1;
           if (currentScale > 1.05) {
-            // 缩小
             meta.setAttribute('content', 'width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover');
             setTimeout(() => {
               updateZoomStatus();
               snapToIndex(currentIndex, false);
             }, 100);
           } else {
-            // 放大
             meta.setAttribute('content', 'width=device-width, initial-scale=2.5, user-scalable=yes, viewport-fit=cover');
             setTimeout(updateZoomStatus, 100);
           }
@@ -226,7 +217,7 @@
       });
     }
     
-    // ========== 电脑端：鼠标拖拽（渐进滚动，可停中间） ==========
+    // ========== 电脑端：鼠标拖拽（渐进） ==========
     if (!isMobile) {
       let mouseDown = false;
       let mouseStartX = 0;
@@ -247,7 +238,6 @@
         let max = getMaxOffset();
         if (newOffset < 0) newOffset = newOffset * 0.3;
         if (newOffset > max) newOffset = max + (newOffset - max) * 0.3;
-        newOffset = Math.max(-max * 0.2, Math.min(max * 1.2, newOffset));
         track.style.transform = `translateX(${-newOffset}px)`;
         currentOffset = newOffset;
         updateIndexFromOffset(newOffset);
@@ -268,7 +258,7 @@
       });
     }
     
-    // ========== 电脑端：滚轮（渐进滚动，可停中间） ==========
+    // ========== 电脑端：滚轮（渐进） ==========
     if (!isMobile) {
       let wheelTimer = null;
       track.addEventListener('wheel', function(e) {
@@ -278,7 +268,6 @@
         let max = getMaxOffset();
         if (newOffset < 0) newOffset = newOffset * 0.3;
         if (newOffset > max) newOffset = max + (newOffset - max) * 0.3;
-        newOffset = Math.max(-max * 0.1, Math.min(max * 1.1, newOffset));
         
         track.style.transition = 'transform 0.05s linear';
         track.style.transform = `translateX(${-newOffset}px)`;
@@ -292,7 +281,7 @@
       }, { passive: false });
     }
     
-    // ========== 键盘左右键（直接翻整张） ==========
+    // ========== 键盘 ==========
     window.addEventListener('keydown', function(e) {
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
@@ -303,7 +292,7 @@
       }
     });
     
-    // 窗口大小改变
+    // 窗口缩放
     window.addEventListener('resize', function() {
       setTimeout(() => {
         snapToIndex(currentIndex, false);
